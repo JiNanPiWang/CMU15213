@@ -143,8 +143,9 @@ For the problems that require you to implement floating-point operations,
      *   Rating: 1
      */
     int bitXor(int x, int y) {
-        return 2;
+        return ~((~(x&(~y)))&(~(y&(~x))));
     }
+
 /* 
  * tmin - return minimum two's complement integer 
  *   Legal ops: ! ~ & ^ | + << >>
@@ -153,7 +154,7 @@ For the problems that require you to implement floating-point operations,
  */
 int tmin(void) {
 
-    return 2;
+    return 1<<31;
 
 }
 //2
@@ -164,9 +165,11 @@ int tmin(void) {
  *   Max ops: 10
  *   Rating: 1
  */
+
 int isTmax(int x) {
-    return 2;
+    return !(~((x + 1) ^ x)) + !!(~x) +(~0);
 }
+
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
  *   where bits are numbered from 0 (least significant) to 31 (most significant)
@@ -176,7 +179,8 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-    return 2;
+    int p = 0xAA<<24 | 0xAA<<16 | 0xAA<<8 | 0xAA;
+    return !((x & p) ^ p);
 }
 /* 
  * negate - return -x 
@@ -186,7 +190,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-    return 2;
+    return ~x + 1;
 }
 //3
 /* 
@@ -199,7 +203,9 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-    return 2;
+    int y = x + (~(0x30) + 1);
+    int z = x + (~(0x3a) + 1);
+    return !((y>>31) & 1) & ((z>>31) & 1);
 }
 /* 
  * conditional - same as x ? y : z 
