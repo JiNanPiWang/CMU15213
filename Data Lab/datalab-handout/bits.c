@@ -214,8 +214,10 @@ int isAsciiDigit(int x) {
  *   Max ops: 16
  *   Rating: 3
  */
+// know negate and win
 int conditional(int x, int y, int z) {
-    return 2;
+    int op = (~(!x) + 1);
+    return (~op & y) | (op & z);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -225,7 +227,11 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-    return 2;
+    int opx = (x >> 31) & 1;
+    int opy = (y >> 31) & 1;
+    int minus_op = ((x + ~y + 1) >> 31) & 1;
+    // return !(opx < opy) & (!(x ^ y) | minus_op | (opx > opy));
+    return !(!opx & opy) & (!(x ^ y) | minus_op | (opx & !opy));
 }
 //4
 /* 
@@ -237,8 +243,9 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-    return 2;
+    return (((x >> 31) & 1) | (((~x + 1) >> 31) & 1)) ^ 1;
 }
+
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
  *  Examples: howManyBits(12) = 5
@@ -251,9 +258,30 @@ int logicalNeg(int x) {
  *  Max ops: 90
  *  Rating: 4
  */
+// positive find first 1, negative find first 0
 int howManyBits(int x) {
-    return 0;
+    int op = x >> 31;
+    int v16, v8, v4, v2, v1, v0, sum = 0;
+    x = (~op & x) | (op & ~x);
+    v16 = ((!(x>>16)) + ~0) & 16;
+    sum = sum + v16;
+    v8 = ((!(x>>(8+sum))) + ~0) & 8;
+    sum = sum + v8;
+    v4 = ((!(x>>(4+sum))) + ~0) & 4;
+    sum = sum + v4;
+    v2 = ((!(x>>(2+sum))) + ~0) & 2;
+    sum = sum + v2;
+    v1 = ((!(x>>(1+sum))) + ~0) & 1;
+    sum = sum + v1;
+    v0 = ((!(x>>(0+sum))) + ~0) & 1;
+    sum = sum + v0;
+    return sum + 1;
 }
+// int main(int argc, char const *argv[])
+// {
+//     printf("%d\n", howManyBits(-1));
+//     return 0;
+// }
 //float
 /* 
  * floatScale2 - Return bit-level equivalent of expression 2*f for
