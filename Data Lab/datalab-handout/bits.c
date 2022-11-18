@@ -277,11 +277,6 @@ int howManyBits(int x) {
     sum = sum + v0;
     return sum + 1;
 }
-// int main(int argc, char const *argv[])
-// {
-//     printf("%d\n", howManyBits(-1));
-//     return 0;
-// }
 //float
 /* 
  * floatScale2 - Return bit-level equivalent of expression 2*f for
@@ -294,8 +289,30 @@ int howManyBits(int x) {
  *   Max ops: 30
  *   Rating: 4
  */
+//could be less operators
 unsigned floatScale2(unsigned uf) {
-    return 2;
+    unsigned expo_mask = (0x7f << 24) + (0x80 << 16);
+    unsigned sig_mask = (1 << 23) - 1;
+    int expo = (uf & expo_mask) >> 23;
+    int sig = (uf & sig_mask);
+
+    if (expo == 0xff)
+        return uf;
+    else if (expo == 0)
+    {
+        sig <<= 1; 
+        return uf & (~sig_mask) | sig;
+    }
+    else
+    {
+        expo++;
+        return uf & (~expo_mask) | (expo << 23);
+    }
+
+    // return sig;
+    // return ~expo_mask;
+    // return expo << 23;
+    // return (~expo_mask | (expo << 23));
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -310,7 +327,38 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-    return 2;
+    int expo, sig;
+    unsigned expo_mask = (0x7f << 24) + (0x80 << 16);
+    unsigned sig_mask = (1 << 23) - 1;
+    int op = (uf >> 31) & 1;
+    if (!op)
+        op = 1;
+    else
+        op = -1;
+    expo = (uf & expo_mask) >> 23;
+    expo -= 127;
+    sig = (uf & sig_mask);
+
+    // printf("expo: %d, sig: %d\n", expo, sig);
+
+    if (expo >= 31)
+        return 0x80000000;
+    else if (expo + 127 == 0)
+        return 0;
+    else
+    {
+        float sum = 1;
+        int i;
+        int ans;
+        for (i = 1; i <= 23; ++i)
+            sum += ((sig >> (23 - i)) & 1) / (1 << i);
+
+        if (expo > 0)
+            ans = (1 << expo);
+        else
+            ans = 1 / (1 << (-expo));
+        return ans * op * sum;
+    }    
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
