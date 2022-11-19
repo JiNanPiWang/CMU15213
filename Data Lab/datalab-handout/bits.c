@@ -343,21 +343,17 @@ int floatFloat2Int(unsigned uf) {
 
     if (expo >= 31)
         return 0x80000000;
-    else if (expo + 127 == 0)
+    else if (expo < 0)
         return 0;
     else
     {
-        float sum = 1;
+        int base = 1 << expo;
+        int sum = base;
         int i;
-        int ans;
         for (i = 1; i <= 23; ++i)
-            sum += ((sig >> (23 - i)) & 1) / (1 << i);
-
-        if (expo > 0)
-            ans = (1 << expo);
-        else
-            ans = 1 / (1 << (-expo));
-        return ans * op * sum;
+            if ((sig >> (23 - i)) & 1)
+                sum += base >> i;
+        return op * sum;
     }    
 }
 /* 
@@ -374,5 +370,18 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if (x < 0)
+    {
+        if (25 + x < 0)
+            return 0;
+        else
+            return 1 << (25 + x);
+    }
+    else
+    {
+        if (x >= 128)
+            return ((0x7f << 24) + (0x80 << 16));
+        else
+            return ((x + 127) << 23);
+    }
 }
