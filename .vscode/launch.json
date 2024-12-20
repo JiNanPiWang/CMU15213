@@ -9,7 +9,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/Bomb Lab/bomb/bomb",
-            "args": ["psol.txt"],
+            "args": [
+                "psol.txt",
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
