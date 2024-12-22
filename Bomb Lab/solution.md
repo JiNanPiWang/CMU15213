@@ -1,3 +1,5 @@
+因为我们在地址内存东西，是从小地址存到大地址，比如一个int32，就是从0x100到0x103，所以栈分配空间就是往小分配，rsp减才是分配空间
+
 ## bomb1：
 
 objdump -d ./bomb 查看反汇编代码
@@ -36,7 +38,7 @@ strings_not_equal函数的一个参数是0x402400，另一个参数是%rdi寄存
   400f02:	48 89 e6             	mov    %rsp,%rsi
 ```
 
-push操作会自动把%rsp栈帧寄存器移动，上面的操作相当于是给栈分配了40个字节的空间，再把当前的栈帧存入%rsi寄存器，%rsp减0x28变为0x7fffffffdcc0
+push操作会自动把%rsp栈帧寄存器移动，上面的操作相当于是给栈分配了40个字节的空间，再把当前的栈帧存入%rsi寄存器，%rsp减0x28变为0x7fffffffdcc0，%rsi=0x7fffffffdcc0
 
 ```asm
   400f05:	e8 52 05 00 00       	callq  40145c <read_six_numbers>
@@ -63,4 +65,41 @@ lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当
   40146b:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
 ```
 
-栈帧56字节存入栈帧20字节地址，也就是栈的56~64字节存的是
+栈帧第-64字节存入栈帧第-20字节地址，也就是栈的-64~-57字节存的是0x7fffffffdce0。
+
+```asm
+  401470:	48 8d 46 10          	lea    0x10(%rsi),%rax
+  401474:	48 89 04 24          	mov    %rax,(%rsp)
+```
+
+%rax存入%rsi+0x10，值就是0x7fffffffdcd0。栈的-72到-65字节存的就是0x7fffffffdcd0。
+
+```asm
+  401478:	4c 8d 4e 0c          	lea    0xc(%rsi),%r9
+  40147c:	4c 8d 46 08          	lea    0x8(%rsi),%r8
+  401480:	be c3 25 40 00       	mov    $0x4025c3,%esi
+  401485:	b8 00 00 00 00       	mov    $0x0,%eax
+  40148a:	e8 61 f7 ff ff       	callq  400bf0 <__isoc99_sscanf@plt>
+```
+
+%r9存0x7fffffffdccc，%r8存0x7fffffffdcc8，%esi存0x4025c3，%eax存0，然后调用400bf0的函数
+
+```asm
+0000000000400bf0 <__isoc99_sscanf@plt>:
+  400bf0:	ff 25 92 24 20 00    	jmpq   *0x202492(%rip)        # 603088 <__isoc99_sscanf@GLIBC_2.7>
+  400bf6:	68 11 00 00 00       	pushq  $0x11
+  400bfb:	e9 d0 fe ff ff       	jmpq   400ad0 <.plt>
+```
+
+调用之后，%rsp再-8，80个字节，到了0x7fffffffdc98。这里的 %rip 指向的是这条指令的下一条指令（400bf6），目标地址 = 0x400bf6 + 0x202492 = 0x603088，gdb查看0x603088的值是400bf6，带 * 的 jmpq是间接跳转，也就是跳向603088的内容，也就是下一行...。
+
+再向栈中推入0x11这个数，%rsp再-8，88个字节，到了0x7fffffffdc90，再跳向400ad0
+
+```asm
+0000000000400ad0 <.plt>:
+  400ad0:	ff 35 1a 25 20 00    	pushq  0x20251a(%rip)        # 602ff0 <_GLOBAL_OFFSET_TABLE_+0x8>
+  400ad6:	ff 25 1c 25 20 00    	jmpq   *0x20251c(%rip)        # 602ff8 <_GLOBAL_OFFSET_TABLE_+0x10>
+  400adc:	0f 1f 40 00          	nopl   0x0(%rax)  
+```
+
+现在，
