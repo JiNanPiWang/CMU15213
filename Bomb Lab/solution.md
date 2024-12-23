@@ -52,14 +52,14 @@ push操作会自动把%rsp栈帧寄存器移动，上面的操作相当于是给
   401460:	48 89 f2             	mov    %rsi,%rdx
 ```
 
-调用再分配了24个字节的空间，目前总共是在栈上分配了88个字节的空间，%rsp减0x18变为了0x7fffffffdca0，然后将栈40个字节的指针存入rdx寄存器
+调用再分配了24个字节的空间，目前总共是在栈上分配了88个字节的空间，%rsp减0x18变为了0x7fffffffdca0，然后将栈56个字节的指针存入rdx寄存器
 
 ```asm
   401463:	48 8d 4e 04          	lea    0x4(%rsi),%rcx
   401467:	48 8d 46 14          	lea    0x14(%rsi),%rax
 ```
 
-lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当于把%rsi+4存入了%rcx，因为%rsi是，也就是栈帧36字节的指针。同理，%rax存的就是栈帧20字节地址，也就是%rsi+20
+lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当于把%rsi+4存入了%rcx，因为%rsi是，也就是栈帧52字节的指针。同理，%rax存的就是栈帧32字节地址，也就是%rsi+20
 
 ```asm
   40146b:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
@@ -72,7 +72,7 @@ lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当
   401474:	48 89 04 24          	mov    %rax,(%rsp)
 ```
 
-%rax存入%rsi+0x10，值就是0x7fffffffdcd0。栈的-88到-81字节存的就是0x7fffffffdcd0。
+%rax存放%rsi+0x10，值就是0x7fffffffdcd0。栈的-88到-81字节存的就是0x7fffffffdcd0。
 
 ```asm
   401478:	4c 8d 4e 0c          	lea    0xc(%rsi),%r9
@@ -82,7 +82,7 @@ lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当
   40148a:	e8 61 f7 ff ff       	callq  400bf0 <__isoc99_sscanf@plt>
 ```
 
-%r9存0x7fffffffdccc，%r8存0x7fffffffdcc8，%esi存0x4025c3，%eax存0，然后调用400bf0的函数
+%r9存栈44字节指针，%r8存栈48字节指针，%esi存0x4025c3，%eax存0，然后调用400bf0的函数
 
 ```asm
 0000000000400bf0 <__isoc99_sscanf@plt>:
@@ -115,6 +115,40 @@ lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当
   sub   0x211f09(%rip),%rsp       #0x7ffff7ffc808 <_rtld_global_ro+168>
   mov   %rax,(%rsp)
   mov   %rcx,0x8(%rsp)
+  mov   %rdx,0x10(%rsp)
+  mov   %rsi,0x18(%rsp)
 ```
 
-第一条sub命令让%rsp减去0x7ffff7ffc808指向的值，gdb查看是0x380，十进制的896，相当于现在分配了1016字节了，然后把0放入栈顶，
+第一条sub命令让%rsp减去0x7ffff7ffc808指向的值，gdb查看是0x380，十进制的896，相当于现在分配了1016字节了
+
+然后把0放入栈-1016~1009字节，把栈52字节的指针地址放入栈-1008~-1001字节，把栈56字节的指针地址存入栈-1000~-993字节，把栈56字节的指针地址也存入栈-992~-985字节
+
+```asm
+  mov   %rdi,0x20($rsp)
+  mov   %r8,0x28(%rsp)
+  mov   %r9,0x30(%rsp)
+  mov   $0xee,%eax
+```
+
+然后重要的来了，把rdi存入栈-984~-977字节，rdi存储了我们输入的内容。再把栈48字节的指针地址存入栈-976~-969字节，再把栈44字节的指针地址存入栈-968~-961字节，eax或者rax变为0xee。
+
+
+```asm
+  xor     %edx,%edx
+  mov     %rdx,0x250(%rsp)
+  mov     %rdx,0x258(%rsp)
+  mov     %rdx,0x260(%rsp)
+  mov     %rdx,0x268(%rsp)
+  mov     %rdx,0x270(%rsp)
+  mov     %rdx,0x278(%rsp)
+```
+
+%edx置0，把栈-424~-417字节变为0。
+
+```asm
+  xsavec  0x40(%rsp)
+  mov     0x10(%rbx),%rsi
+  mov     0x8(%rbx),%rdi
+```
+
+xsavec 是一个用于处理 CPU 状态保存的指令，%rsi的值变为0x11，
