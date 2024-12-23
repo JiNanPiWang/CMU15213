@@ -80,75 +80,27 @@ lea负责取地址，然而0x4(%rsi)代表取(%rsi+4)地址的值，所以相当
   401480:	be c3 25 40 00       	mov    $0x4025c3,%esi
   401485:	b8 00 00 00 00       	mov    $0x0,%eax
   40148a:	e8 61 f7 ff ff       	callq  400bf0 <__isoc99_sscanf@plt>
+  40148f:	83 f8 05             	cmp    $0x5,%eax
+  401492:	7f 05                	jg     401499 <read_six_numbers+0x3d>
+  401494:	e8 a1 ff ff ff       	callq  40143a <explode_bomb>
+  401499:	48 83 c4 18          	add    $0x18,%rsp
+  40149d:	c3                   	retq   
 ```
 
-%r9存栈44字节指针，%r8存栈48字节指针，%esi存0x4025c3，%eax存0，然后调用400bf0的函数
+%r9存栈44字节指针，%r8存栈48字节指针，%esi存0x4025c3，%eax存0，然后调用400bf0的函数，这个函数应该是会读入6个数，返回读入的数量，因为下一条指令则是判断eax是否大于5，否则爆炸。最后再把开始加的24个字节的空间放回去。现在栈有64字节空间。
 
 ```asm
-0000000000400bf0 <__isoc99_sscanf@plt>:
-  400bf0:	ff 25 92 24 20 00    	jmpq   *0x202492(%rip)        # 603088 <__isoc99_sscanf@GLIBC_2.7>
-  400bf6:	68 11 00 00 00       	pushq  $0x11
-  400bfb:	e9 d0 fe ff ff       	jmpq   400ad0 <.plt>
+0000000000400efc <phase_2>:
+  400f0a:	83 3c 24 01          	cmpl   $0x1,(%rsp)
+  400f0e:	74 20                	je     400f30 <phase_2+0x34>
+  400f10:	e8 25 05 00 00       	callq  40143a <explode_bomb>
 ```
 
-调用之后，%rsp再-8，96个字节，到了0x7fffffffdc98。这里的 %rip 指向的是这条指令的下一条指令（400bf6），目标地址 = 0x400bf6 + 0x202492 = 0x603088，gdb查看0x603088的值是400bf6，带 * 的 jmpq是间接跳转，也就是跳向603088的内容，也就是下一行...。
+现在回到了phase_2，首当其冲的就是要求栈顶元素需要等于1，否则爆炸。我输入直接蒙了六个4，然后输出发现：
 
-再向栈中推入0x11这个数，%rsp再-8，104个字节，到了0x7fffffffdc90，再跳向400ad0
-
-```asm
-0000000000400ad0 <.plt>:
-  400ad0:	ff 35 1a 25 20 00    	pushq  0x20251a(%rip)        # 602ff0 <_GLOBAL_OFFSET_TABLE_+0x8>
-  400ad6:	ff 25 1c 25 20 00    	jmpq   *0x20251c(%rip)        # 602ff8 <_GLOBAL_OFFSET_TABLE_+0x10>
-  400adc:	0f 1f 40 00          	nopl   0x0(%rax)  
+```gdb
+(gdb) x/gx $rsp
+0x7fffffffdc20: 0x0000000400000004
 ```
 
-%rip的值在cpu取址阶段就立刻改变，所以第一条是向栈里推进0x20251a+400ad6=602ff0，%rsp再-8，112个字节。第二条，是跳转到602ff8对应的值的地点，动态链接，使用x/i $rip可以看出来下一个要执行的命令，使用stepi可以跳到下一条指令去
-
-```asm
-  push  %rbx
-  mov   %rsp,%rbx
-  and   $0xffffffffffffffc0,%rsp
-```
-第一条把0放入栈，栈已经120个字节了。再把当前120字节位置的栈帧存入%rbx。再将栈帧前面全变成1，保留最后的六位，我发现不同的机器上最后几位还是一样的，所以这里合理。rsp变为0x7fffffffe240
-
-```asm
-  sub   0x211f09(%rip),%rsp       #0x7ffff7ffc808 <_rtld_global_ro+168>
-  mov   %rax,(%rsp)
-  mov   %rcx,0x8(%rsp)
-  mov   %rdx,0x10(%rsp)
-  mov   %rsi,0x18(%rsp)
-```
-
-第一条sub命令让%rsp减去0x7ffff7ffc808指向的值，gdb查看是0x380，十进制的896，相当于现在分配了1016字节了
-
-然后把0放入栈-1016~1009字节，把栈52字节的指针地址放入栈-1008~-1001字节，把栈56字节的指针地址存入栈-1000~-993字节，把栈56字节的指针地址也存入栈-992~-985字节
-
-```asm
-  mov   %rdi,0x20($rsp)
-  mov   %r8,0x28(%rsp)
-  mov   %r9,0x30(%rsp)
-  mov   $0xee,%eax
-```
-
-然后重要的来了，把rdi存入栈-984~-977字节，rdi存储了我们输入的内容。再把栈48字节的指针地址存入栈-976~-969字节，再把栈44字节的指针地址存入栈-968~-961字节，eax或者rax变为0xee。
-
-
-```asm
-  xor     %edx,%edx
-  mov     %rdx,0x250(%rsp)
-  mov     %rdx,0x258(%rsp)
-  mov     %rdx,0x260(%rsp)
-  mov     %rdx,0x268(%rsp)
-  mov     %rdx,0x270(%rsp)
-  mov     %rdx,0x278(%rsp)
-```
-
-%edx置0，把栈-424~-417字节变为0。
-
-```asm
-  xsavec  0x40(%rsp)
-  mov     0x10(%rbx),%rsi
-  mov     0x8(%rbx),%rdi
-```
-
-xsavec 是一个用于处理 CPU 状态保存的指令，%rsi的值变为0x11，
+这不就对了吗，
