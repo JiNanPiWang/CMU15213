@@ -168,3 +168,75 @@ rbx继续加4，也就是第三个输入了。rbp在上面定义了，是栈顶+
 ```
 
 从0x400fa6开始，把0x147放入eax寄存器，然后调用400fbe。如果它和第二个参数一样，那就结束了，0x147是十进制的327，输入就拆除第三个炸弹了。
+
+## bomb4：
+
+```asm
+000000000040100c <phase_4>:
+  40100c:	48 83 ec 18          	sub    $0x18,%rsp
+  401010:	48 8d 4c 24 0c       	lea    0xc(%rsp),%rcx
+  401015:	48 8d 54 24 08       	lea    0x8(%rsp),%rdx
+  40101a:	be cf 25 40 00       	mov    $0x4025cf,%esi
+  40101f:	b8 00 00 00 00       	mov    $0x0,%eax
+  401024:	e8 c7 fb ff ff       	callq  400bf0 <__isoc99_sscanf@plt>
+  401029:	83 f8 02             	cmp    $0x2,%eax
+  40102c:	75 07                	jne    401035 <phase_4+0x29>
+```
+
+看起来还是输入两个，401029告诉我们，如果eax不等于2，就爆炸。
+
+```asm
+  40102e:	83 7c 24 08 0e       	cmpl   $0xe,0x8(%rsp)
+  401033:	76 05                	jbe    40103a <phase_4+0x2e>
+  401035:	e8 00 04 00 00       	callq  40143a <explode_bomb>
+  40103a:	ba 0e 00 00 00       	mov    $0xe,%edx
+  40103f:	be 00 00 00 00       	mov    $0x0,%esi
+  401044:	8b 7c 24 08          	mov    0x8(%rsp),%edi
+  401048:	e8 81 ff ff ff       	callq  400fce <func4>
+```
+
+如果第一个输入大于等于14，就爆炸，所以第一个输入小于14。然后edx存入14，esi存入0，edi存入第一个输入，调用func4。不过不急着看func4
+
+```asm
+  40104d:	85 c0                	test   %eax,%eax
+  40104f:	75 07                	jne    401058 <phase_4+0x4c>
+  401051:	83 7c 24 0c 00       	cmpl   $0x0,0xc(%rsp)
+  401056:	74 05                	je     40105d <phase_4+0x51>
+  401058:	e8 dd 03 00 00       	callq  40143a <explode_bomb>
+  40105d:	48 83 c4 18          	add    $0x18,%rsp
+  401061:	c3                   	retq   
+```
+
+经过func4后，我们需要保证eax等于0，否则爆炸（jne代表jump if not equal）。第二个参数需要是0才能到最后。所以关键是在func4返回的时候保证eax大于0，我们来看func4
+
+```asm
+0000000000400fce <func4>:
+  400fce:	48 83 ec 08          	sub    $0x8,%rsp
+  400fd2:	89 d0                	mov    %edx,%eax
+  400fd4:	29 f0                	sub    %esi,%eax
+  400fd6:	89 c1                	mov    %eax,%ecx
+  400fd8:	c1 e9 1f             	shr    $0x1f,%ecx
+  400fdb:	01 c8                	add    %ecx,%eax
+  400fdd:	d1 f8                	sar    %eax
+  400fdf:	8d 0c 30             	lea    (%rax,%rsi,1),%ecx
+```
+
+开始就是eax = edx (eax=14); eax -= esi (eax=14); ecx = eax (ecx=14 1110); ecx右移五位=0，eax += ecx (eax=14); eax再右移一位，变成7。ecx = rax + rsi (ecx=7);
+
+```asm
+  400fe2:	39 f9                	cmp    %edi,%ecx
+  400fe4:	7e 0c                	jle    400ff2 <func4+0x24>
+  400ff2:	b8 00 00 00 00       	mov    $0x0,%eax
+  400ff7:	39 f9                	cmp    %edi,%ecx
+  400ff9:	7d 0c                	jge    401007 <func4+0x39>
+
+  400ffb:	8d 71 01             	lea    0x1(%rcx),%esi
+  400ffe:	e8 cb ff ff ff       	callq  400fce <func4>
+  401003:	8d 44 00 01          	lea    0x1(%rax,%rax,1),%eax
+
+  401007:	48 83 c4 08          	add    $0x8,%rsp
+  40100b:	c3                   	retq   
+```
+
+如果第一个输入小于等于7，就跳到400ff2，eax变为0，如果第一个输入大于等于7，就返回了。我们需要保证eax=0，所以就这样就行了。第一个参数是7，第二个参数是0。
+
