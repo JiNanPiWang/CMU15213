@@ -81,12 +81,12 @@ Stack:                      # 栈底地址
 
 1. 汇编：
    ```bash
-   yas sum.ys
+   ./yas sum.ys
    ```
 
 2. 模拟运行：
    ```bash
-   yis sum.yo
+   ./yis sum.yo
    ```
 
 3. 查看 `%rax` 值是否为：
@@ -96,3 +96,55 @@ Stack:                      # 栈底地址
 
 
 ## arch2
+
+partA的第二题，和arch1很像，不过需要使用call调用自身
+
+```asm
+# sum.ys: 迭代地计算链表的元素和
+# Name: [你的名字]
+# ID: [你的学号]
+
+.pos 0
+# 程序入口
+	irmovq Stack, %rsp		# 初始化栈指针
+	irmovq ele1, %rdi		# 将链表头指针传入 %rdi
+	irmovq 0, %rax			# 返回值 = 0
+	call rsum_list			# 调用 sum_list 函数
+	halt					# 程序结束
+
+# 链表元素定义
+.align 8
+ele1:
+	.quad 0x00a				# ele1 的值
+	.quad ele2				# ele1 的下一个节点地址
+ele2:
+	.quad 0x0b0				# ele2 的值
+	.quad ele3				# ele2 的下一个节点地址
+ele3:
+	.quad 0xc00				# ele3 的值
+	.quad 0					# ele3 的下一个节点地址（终止）
+
+
+rsum_list:
+	pushq %rsi
+
+	andq %rdi, %rdi			# 判断参数是否为0了
+	je end
+
+	mrmovq (%rdi),%rax		# val = ls->val
+	mrmovq 8(%rdi),%rdi		# ls = ls->next
+
+	pushq %rax				# 保存val
+	call rsum_list			# rest = rsum_list(ls->next), %rax = rest
+	popq %rsi				# rsi = val
+	addq %rsi, %rax			# rest += val
+end:
+	popq %rsi
+	ret
+
+# 栈空间定义
+.pos 0x1000					# 栈空间从 .pos 0x1000 开始，以保证程序数据和栈数据不会冲突。
+.align 8
+Stack:						# 栈底地址
+
+```

@@ -6,7 +6,7 @@
 # 程序入口
 	irmovq Stack, %rsp		# 初始化栈指针
 	irmovq ele1, %rdi		# 将链表头指针传入 %rdi
-	irmovq 0,%rax			# 返回值 = 0
+	irmovq 0, %rax			# 返回值 = 0
 	call rsum_list			# 调用 sum_list 函数
 	halt					# 程序结束
 
@@ -33,8 +33,7 @@ rsum_list:
 	mrmovq 8(%rdi),%rdi		# ls = ls->next
 
 	pushq %rax				# 保存val
-	irmovq 0, %rax
-	jmp rsum_list			# rest = rsum_list(ls->next), %rax = rest
+	call rsum_list			# rest = rsum_list(ls->next), %rax = rest
 	popq %rsi				# rsi = val
 	addq %rsi, %rax			# rest += val
 end:
@@ -42,6 +41,6 @@ end:
 	ret
 
 # 栈空间定义
-.pos 0x100					# 栈空间从 .pos 0x100 开始，以保证程序数据和栈数据不会冲突。
+.pos 0x1000					# 栈空间从 .pos 0x1000 开始，以保证程序数据和栈数据不会冲突。
 .align 8
 Stack:						# 栈底地址
