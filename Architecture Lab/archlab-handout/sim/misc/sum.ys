@@ -4,10 +4,10 @@
 
 .pos 0
 # 程序入口
-    irmovq Stack, %rsp      # 初始化栈指针
-	irmovq ele1, %rdi       # 将链表头指针传入 %rdi
-	call sum_list           # 调用 sum_list 函数
-	halt                    # 程序结束
+	irmovq Stack, %rsp		# 初始化栈指针
+	irmovq ele1, %rdi		# 将链表头指针传入 %rdi
+	call rsum_list			# 调用 sum_list 函数
+	halt					# 程序结束
 
 # 链表元素定义
 .align 8
@@ -24,19 +24,19 @@ ele3:
 
 sum_list:
 	pushq %rsi
-    irmovq 0,%rax			# 返回值=0
+	irmovq 0,%rax			# 返回值=0
 loop:
-    andq %rdi,%rdi			# 判断参数是否为0了
-    je end
-    mrmovq (%rdi),%rsi		# val += ls->val
+	andq %rdi,%rdi			# 判断参数是否为0了
+	je end
+	mrmovq (%rdi),%rsi		# val += ls->val
 	addq %rsi,%rax
-    mrmovq 8(%rdi),%rdi		# ls = ls->next
-    jmp loop
+	mrmovq 8(%rdi),%rdi		# ls = ls->next
+	jmp loop
 end:
 	popq %rsi
-    ret
+	ret
 
 # 栈空间定义
-.pos 0x100                  # 栈空间从 .pos 0x100 开始，以保证程序数据和栈数据不会冲突。
+.pos 0x100					# 栈空间从 .pos 0x100 开始，以保证程序数据和栈数据不会冲突。
 .align 8
-Stack:                      # 栈底地址
+Stack:						# 栈底地址
