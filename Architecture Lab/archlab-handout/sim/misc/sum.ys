@@ -6,7 +6,7 @@
 # 程序入口
 	irmovq Stack, %rsp		# 初始化栈指针
 	irmovq ele1, %rdi		# 将链表头指针传入 %rdi
-	call rsum_list			# 调用 sum_list 函数
+	call sum_list			# 调用 sum_list 函数
 	halt					# 程序结束
 
 # 链表元素定义
