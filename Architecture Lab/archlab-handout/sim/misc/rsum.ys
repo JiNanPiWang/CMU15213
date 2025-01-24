@@ -29,12 +29,10 @@ rsum_list:
 	andq %rdi, %rdi			# 判断参数是否为0了
 	je end
 
-	mrmovq (%rdi),%rax		# val = ls->val
+	mrmovq (%rdi),%rsi		# long val = ls->val
 	mrmovq 8(%rdi),%rdi		# ls = ls->next
 
-	pushq %rax				# 保存val
-	call rsum_list			# rest = rsum_list(ls->next), %rax = rest
-	popq %rsi				# rsi = val
+	call rsum_list			# long rest = rsum_list(ls->next), %rax = rest
 	addq %rsi, %rax			# rest += val
 end:
 	popq %rsi
