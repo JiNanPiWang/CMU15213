@@ -25,14 +25,22 @@ ncopy:
 	jle Done			# if so, goto Done:
 
 Normal_Loop0:
-	iaddq 0xfffffffffffffffc, %rdx		# len-=4
+	iaddq 0xfffffffffffffff6, %rdx		# len-=10
 	andq %rdx, %rdx						# 如果len<=0
 	jle Last_Loop		
-	iaddq 4, %rdx						# len+=4
+	iaddq 10, %rdx						# len+=10
+
 	mrmovq (%rdi), %r10					# read val from src...
 	mrmovq 8(%rdi), %r11				# read val from src...
 	mrmovq 16(%rdi), %r12				# read val from src...
 	mrmovq 24(%rdi), %r13				# read val from src...
+	mrmovq 32(%rdi), %r8				# read val from src...
+	mrmovq 40(%rdi), %r9				# read val from src...
+	mrmovq 48(%rdi), %r14				# read val from src...
+	mrmovq 56(%rdi), %rcx				# read val from src...
+	mrmovq 64(%rdi), %rbx				# read val from src...
+	mrmovq 72(%rdi), %rbp				# read val from src...
+
 	andq %r10, %r10						# val <= 0?
 	jle Normal_Loop1					# if so, goto Npos:
 	iaddq 1, %rax						# count++
@@ -45,22 +53,53 @@ Normal_Loop2:
 	jle Normal_Loop3					# if so, goto Npos:
 	iaddq 1, %rax						# count++
 Normal_Loop3:
+	andq %r13, %r13						# val <= 0?
+	jle Normal_Loop4					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop4:
+	andq %r8, %r8						# val <= 0?
+	jle Normal_Loop5					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop5:
+	andq %r9, %r9						# val <= 0?
+	jle Normal_Loop6					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop6:
+	andq %r14, %r14						# val <= 0?
+	jle Normal_Loop7					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop7:
+	andq %rcx, %rcx						# val <= 0?
+	jle Normal_Loop8					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop8:
+	andq %rbx, %rbx						# val <= 0?
+	jle Normal_Loop9					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop9:
 
 	rmmovq %r10, (%rsi)					# ...and store it to dst
 	rmmovq %r11, 8(%rsi)				# ...and store it to dst
 	rmmovq %r12, 16(%rsi)				# ...and store it to dst
 	rmmovq %r13, 24(%rsi)				# ...and store it to dst
-	iaddq 32, %rdi						# src++
-	iaddq 32, %rsi						# dst++
-	iaddq 0xfffffffffffffffc, %rdx		# len-4
+	rmmovq %r8, 32(%rsi)				# ...and store it to dst
+	rmmovq %r9, 40(%rsi)				# ...and store it to dst
+	rmmovq %r14, 48(%rsi)				# ...and store it to dst
+	rmmovq %rcx, 56(%rsi)				# ...and store it to dst
+	rmmovq %rbx, 64(%rsi)				# ...and store it to dst
+	rmmovq %rbp, 72(%rsi)				# ...and store it to dst
 
-	andq %r13, %r13						# val <= 0?
+	iaddq 80, %rdi						# src++
+	iaddq 80, %rsi						# dst++
+	iaddq 0xfffffffffffffff6, %rdx		# len-10
+
+	andq %rbp, %rbp						# val <= 0?
 	jle Normal_Loop0					# if so, goto Npos:
 	iaddq 1, %rax						# count++
 	jmp Normal_Loop0
 
 Last_Loop:
-	iaddq 0x4, %rdx						# rdx+4
+	iaddq 10, %rdx						# rdx+10
 Last_Loop_Content:
 	mrmovq (%rdi), %r10					# read val from src...
 	iaddq 8, %rdi						# src++
