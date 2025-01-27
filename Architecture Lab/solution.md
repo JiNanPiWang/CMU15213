@@ -585,7 +585,7 @@ Simulating with ../seq/ssim
 
 首先我们还是实现一个iaddq，和上面一样。成功后也是显示那些。
 
-我们可以直接测一下效率，什么都不改，sdriver：1.26，ldriver：1.17，benchmark：15.18
+我们可以直接测一下效率，什么都不改，benchmark：15.18
 
 然后我尝试把所有的加法和减法都用iaddq带替：
 
@@ -611,14 +611,14 @@ Npos:
 	jg Loop								# if so, goto Loop:
 ##################################################################
 ```
-效率变成了：sdriver：1.31，ldriver：1.22，benchmark：12.70
+效率变成了：benchmark：12.70
 
 再观察一下，发现
 ```asm
 	mrmovq 0(%rdi), %r10				# read val from src...
 	rmmovq %r10, (%rsi)					# ...and store it to dst
 ```
-这对流水线似乎会有一点数据冒险，r10会卡一下。所以我们可以提前在这里把count+1，如果不行就减
+这对流水线似乎会有一点数据冒险，r10会卡一下。所以我们可以提前在这里把src dst+1
 
 ```asm
 ##################################################################
@@ -629,19 +629,18 @@ Npos:
 	jle Done			# if so, goto Done:
 
 Loop:
-	mrmovq 0(%rdi), %r10				# read val from src...
-	iaddq 1, %rax						# count++
-	rmmovq %r10, (%rsi)					# ...and store it to dst
-	andq %r10, %r10						# val <= 0?
-	jg Npos								# if so, goto Npos:
-	iaddq 0xffffffffffffffff, %rax		# count--
-Npos:	
-	iaddq 0xffffffffffffffff, %rdx		# len--
+	mrmovq (%rdi), %r10					# read val from src...
 	iaddq 8, %rdi						# src++
+	rmmovq %r10, (%rsi)					# ...and store it to dst
 	iaddq 8, %rsi						# dst++
+	iaddq 0xffffffffffffffff, %rdx		# len--
+	andq %r10, %r10						# val <= 0?
+	jle Npos							# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Npos:
 	andq %rdx,%rdx						# len > 0?
 	jg Loop								# if so, goto Loop:
 ##################################################################
 ```
 
-sdriver：1.21，ldriver：1.11，benchmark：12.82，有一点点提升
+benchmark：11.70，有一点点提升
