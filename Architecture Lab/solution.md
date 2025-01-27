@@ -585,3 +585,30 @@ Simulating with ../seq/ssim
 
 首先我们还是实现一个iaddq，和上面一样。成功后也是显示那些。
 
+我们可以直接测一下效率，什么都不改，sdriver：1.26，ldriver：1.17，benchmark：15.18
+
+然后我尝试把所有的加法和减法都用iaddq带替：
+
+```asm
+##################################################################
+# You can modify this portion
+	# Loop header
+	xorq %rax,%rax		# count = 0;
+	andq %rdx,%rdx		# len <= 0?
+	jle Done			# if so, goto Done:
+
+Loop:
+	mrmovq (%rdi), %r10					# read val from src...
+	rmmovq %r10, (%rsi)					# ...and store it to dst
+	andq %r10, %r10						# val <= 0?
+	jle Npos							# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Npos:	
+	iaddq 0xffffffffffffffff, %rdx		# len--
+	iaddq 8, %rdi						# src++
+	iaddq 8, %rsi						# dst++
+	andq %rdx,%rdx						# len > 0?
+	jg Loop								# if so, goto Loop:
+##################################################################
+```
+效率变成了：sdriver：1.31，ldriver：1.22，benchmark：12.70

@@ -6,6 +6,9 @@
 # Include your name and ID here.
 #
 # Describe how and why you modified the baseline code.
+# 循环展开，比如100%3，先计算计算主循环次数（100/3=33次），再计算剩余数据量（100%3=1）
+# 比如r8存主循环次数，r9存剩余数据量
+# count可以分开算，没有数据冒险
 #
 ##################################################################
 # Do not modify this portion
@@ -18,21 +21,20 @@ ncopy:
 	# Loop header
 	xorq %rax,%rax		# count = 0;
 	andq %rdx,%rdx		# len <= 0?
-	jle Done		# if so, goto Done:
+	jle Done			# if so, goto Done:
 
-Loop:	mrmovq (%rdi), %r10	# read val from src...
-	rmmovq %r10, (%rsi)	# ...and store it to dst
-	andq %r10, %r10		# val <= 0?
-	jle Npos		# if so, goto Npos:
-	irmovq $1, %r10
-	addq %r10, %rax		# count++
-Npos:	irmovq $1, %r10
-	subq %r10, %rdx		# len--
-	irmovq $8, %r10
-	addq %r10, %rdi		# src++
-	addq %r10, %rsi		# dst++
-	andq %rdx,%rdx		# len > 0?
-	jg Loop			# if so, goto Loop:
+Loop:
+	mrmovq (%rdi), %r10					# read val from src...
+	rmmovq %r10, (%rsi)					# ...and store it to dst
+	andq %r10, %r10						# val <= 0?
+	jle Npos							# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Npos:	
+	iaddq 0xffffffffffffffff, %rdx		# len--
+	iaddq 8, %rdi						# src++
+	iaddq 8, %rsi						# dst++
+	andq %rdx,%rdx						# len > 0?
+	jg Loop								# if so, goto Loop:
 ##################################################################
 # Do not modify the following section of code
 # Function epilogue.
