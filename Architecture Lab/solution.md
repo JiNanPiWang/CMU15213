@@ -206,6 +206,8 @@ Stack:						# 栈底地址
 
 ## arch4
 
+就是partB
+
 `seq-full.hcl`这段程序是一个用 HCL（Hardware Control Language）描述的单周期 Y86-64 模拟处理器控制逻辑。以下是程序的主要部分和功能的简要解释：
 
 ---
@@ -578,3 +580,8 @@ Simulating with ../seq/ssim
 Simulating with ../seq/ssim
   All 756 ISA Checks Succeed
 ```
+
+## arch5
+
+首先我们还是实现一个iaddq，和上面一样。成功后也是显示那些。
+
