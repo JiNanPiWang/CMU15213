@@ -8,6 +8,7 @@
 # Describe how and why you modified the baseline code.
 # 循环展开，比如100%3，先计算计算主循环次数（100/3=33次），再计算剩余数据量（100%3=1）
 # 比如r8存主循环次数，r9存剩余数据量
+# 总数先-3，到时候小于0了再说
 # count可以分开算，没有数据冒险
 #
 ##################################################################
@@ -24,11 +25,12 @@ ncopy:
 	jle Done			# if so, goto Done:
 
 Loop:
-	mrmovq (%rdi), %r10					# read val from src...
+	mrmovq 0(%rdi), %r10				# read val from src...
+	iaddq 1, %rax						# count++
 	rmmovq %r10, (%rsi)					# ...and store it to dst
 	andq %r10, %r10						# val <= 0?
-	jle Npos							# if so, goto Npos:
-	iaddq 1, %rax						# count++
+	jg Npos								# if so, goto Npos:
+	iaddq 0xffffffffffffffff, %rax		# count--
 Npos:	
 	iaddq 0xffffffffffffffff, %rdx		# len--
 	iaddq 8, %rdi						# src++

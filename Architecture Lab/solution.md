@@ -612,3 +612,36 @@ Npos:
 ##################################################################
 ```
 效率变成了：sdriver：1.31，ldriver：1.22，benchmark：12.70
+
+再观察一下，发现
+```asm
+	mrmovq 0(%rdi), %r10				# read val from src...
+	rmmovq %r10, (%rsi)					# ...and store it to dst
+```
+这对流水线似乎会有一点数据冒险，r10会卡一下。所以我们可以提前在这里把count+1，如果不行就减
+
+```asm
+##################################################################
+# You can modify this portion
+	# Loop header
+	xorq %rax,%rax		# count = 0;
+	andq %rdx,%rdx		# len <= 0?
+	jle Done			# if so, goto Done:
+
+Loop:
+	mrmovq 0(%rdi), %r10				# read val from src...
+	iaddq 1, %rax						# count++
+	rmmovq %r10, (%rsi)					# ...and store it to dst
+	andq %r10, %r10						# val <= 0?
+	jg Npos								# if so, goto Npos:
+	iaddq 0xffffffffffffffff, %rax		# count--
+Npos:	
+	iaddq 0xffffffffffffffff, %rdx		# len--
+	iaddq 8, %rdi						# src++
+	iaddq 8, %rsi						# dst++
+	andq %rdx,%rdx						# len > 0?
+	jg Loop								# if so, goto Loop:
+##################################################################
+```
+
+sdriver：1.21，ldriver：1.11，benchmark：12.82，有一点点提升
