@@ -106,9 +106,6 @@ Last_Loop_Content:
 Npos:
 	iaddq -1, %rdx						# len--
 	jg Last_Loop_Content
-
-
-
 ##################################################################
 # Do not modify the following section of code
 # Function epilogue.

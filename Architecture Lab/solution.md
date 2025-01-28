@@ -644,3 +644,98 @@ Npos:
 ```
 
 benchmark：11.70，有一点点提升
+
+再进行循环展开、优化匹配逻辑，效率可以到benchmark：8.29，Score   44.2/60.0
+
+```asm
+##################################################################
+# You can modify this portion
+	# Loop header
+	xorq %rax,%rax						# count = 0;
+	iaddq -10, %rdx						# len-=10
+	jl Last_Loop		
+
+Normal_Loop0:
+	mrmovq (%rdi), %r10					# read val from src...
+	mrmovq 8(%rdi), %r11				# read val from src...
+	mrmovq 16(%rdi), %r12				# read val from src...
+	mrmovq 24(%rdi), %r13				# read val from src...
+	mrmovq 32(%rdi), %r8				# read val from src...
+	mrmovq 40(%rdi), %r9				# read val from src...
+	mrmovq 48(%rdi), %r14				# read val from src...
+	mrmovq 56(%rdi), %rcx				# read val from src...
+	mrmovq 64(%rdi), %rbx				# read val from src...
+	mrmovq 72(%rdi), %rbp				# read val from src...
+
+	andq %r10, %r10						# val <= 0?
+	jle Normal_Loop1					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop1:
+	andq %r11, %r11						# val <= 0?
+	jle Normal_Loop2					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop2:
+	andq %r12, %r12						# val <= 0?
+	jle Normal_Loop3					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop3:
+	andq %r13, %r13						# val <= 0?
+	jle Normal_Loop4					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop4:
+	andq %r8, %r8						# val <= 0?
+	jle Normal_Loop5					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop5:
+	andq %r9, %r9						# val <= 0?
+	jle Normal_Loop6					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop6:
+	andq %r14, %r14						# val <= 0?
+	jle Normal_Loop7					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop7:
+	andq %rcx, %rcx						# val <= 0?
+	jle Normal_Loop8					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop8:
+	andq %rbx, %rbx						# val <= 0?
+	jle Normal_Loop9					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop9:
+	andq %rbp, %rbp						# val <= 0?
+	jle Normal_Loop10					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop10:
+	rmmovq %r10, (%rsi)					# ...and store it to dst
+	rmmovq %r11, 8(%rsi)				# ...and store it to dst
+	rmmovq %r12, 16(%rsi)				# ...and store it to dst
+	rmmovq %r13, 24(%rsi)				# ...and store it to dst
+	rmmovq %r8, 32(%rsi)				# ...and store it to dst
+	rmmovq %r9, 40(%rsi)				# ...and store it to dst
+	rmmovq %r14, 48(%rsi)				# ...and store it to dst
+	rmmovq %rcx, 56(%rsi)				# ...and store it to dst
+	rmmovq %rbx, 64(%rsi)				# ...and store it to dst
+	rmmovq %rbp, 72(%rsi)				# ...and store it to dst
+
+	iaddq 80, %rdi						# src++
+	iaddq 80, %rsi						# dst++
+	iaddq -10, %rdx						# len-10
+	jge Normal_Loop0					# if so, goto Npos:
+
+Last_Loop:
+	iaddq 10, %rdx						# rdx+10
+	jle Done
+Last_Loop_Content:
+	mrmovq (%rdi), %r10					# read val from src...
+	iaddq 8, %rdi						# src++
+	rmmovq %r10, (%rsi)					# ...and store it to dst
+	iaddq 8, %rsi						# dst++
+	andq %r10, %r10						# val <= 0?
+	jle Npos							# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Npos:
+	iaddq -1, %rdx						# len--
+	jg Last_Loop_Content
+##################################################################
+```
