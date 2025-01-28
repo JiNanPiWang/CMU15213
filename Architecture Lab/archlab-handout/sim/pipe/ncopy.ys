@@ -20,12 +20,12 @@ ncopy:
 ##################################################################
 # You can modify this portion
 	# Loop header
-	xorq %rax,%rax		# count = 0;
-	andq %rdx,%rdx		# len <= 0?
-	jle Done			# if so, goto Done:
+	xorq %rax,%rax						# count = 0;
+	andq %rdx,%rdx						# len <= 0?
+	jle Done							# if so, goto Done:
 
 Normal_Loop0:
-	iaddq 0xfffffffffffffff6, %rdx		# len-=10
+	iaddq -10, %rdx						# len-=10
 	andq %rdx, %rdx						# 如果len<=0
 	jle Last_Loop		
 	iaddq 10, %rdx						# len+=10
@@ -91,7 +91,7 @@ Normal_Loop9:
 
 	iaddq 80, %rdi						# src++
 	iaddq 80, %rsi						# dst++
-	iaddq 0xfffffffffffffff6, %rdx		# len-10
+	iaddq -10, %rdx						# len-10
 
 	andq %rbp, %rbp						# val <= 0?
 	jle Normal_Loop0					# if so, goto Npos:
@@ -105,7 +105,7 @@ Last_Loop_Content:
 	iaddq 8, %rdi						# src++
 	rmmovq %r10, (%rsi)					# ...and store it to dst
 	iaddq 8, %rsi						# dst++
-	iaddq 0xffffffffffffffff, %rdx		# len--
+	iaddq -1, %rdx						# len--
 	andq %r10, %r10						# val <= 0?
 	jle Npos							# if so, goto Npos:
 	iaddq 1, %rax						# count++
