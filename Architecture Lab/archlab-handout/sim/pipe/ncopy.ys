@@ -21,15 +21,10 @@ ncopy:
 # You can modify this portion
 	# Loop header
 	xorq %rax,%rax						# count = 0;
-	andq %rdx,%rdx						# len <= 0?
-	jle Done							# if so, goto Done:
+	iaddq -10, %rdx						# len-=10
+	jl Last_Loop		
 
 Normal_Loop0:
-	iaddq -10, %rdx						# len-=10
-	andq %rdx, %rdx						# 如果len<=0
-	jle Last_Loop		
-	iaddq 10, %rdx						# len+=10
-
 	mrmovq (%rdi), %r10					# read val from src...
 	mrmovq 8(%rdi), %r11				# read val from src...
 	mrmovq 16(%rdi), %r12				# read val from src...
@@ -77,7 +72,10 @@ Normal_Loop8:
 	jle Normal_Loop9					# if so, goto Npos:
 	iaddq 1, %rax						# count++
 Normal_Loop9:
-
+	andq %rbp, %rbp						# val <= 0?
+	jle Normal_Loop10					# if so, goto Npos:
+	iaddq 1, %rax						# count++
+Normal_Loop10:
 	rmmovq %r10, (%rsi)					# ...and store it to dst
 	rmmovq %r11, 8(%rsi)				# ...and store it to dst
 	rmmovq %r12, 16(%rsi)				# ...and store it to dst
@@ -92,26 +90,22 @@ Normal_Loop9:
 	iaddq 80, %rdi						# src++
 	iaddq 80, %rsi						# dst++
 	iaddq -10, %rdx						# len-10
-
-	andq %rbp, %rbp						# val <= 0?
-	jle Normal_Loop0					# if so, goto Npos:
-	iaddq 1, %rax						# count++
-	jmp Normal_Loop0
+	jge Normal_Loop0					# if so, goto Npos:
 
 Last_Loop:
 	iaddq 10, %rdx						# rdx+10
+	jle Done
 Last_Loop_Content:
 	mrmovq (%rdi), %r10					# read val from src...
 	iaddq 8, %rdi						# src++
 	rmmovq %r10, (%rsi)					# ...and store it to dst
 	iaddq 8, %rsi						# dst++
-	iaddq -1, %rdx						# len--
 	andq %r10, %r10						# val <= 0?
 	jle Npos							# if so, goto Npos:
 	iaddq 1, %rax						# count++
 Npos:
-	andq %rdx,%rdx						# len > 0?
-	jg Last_Loop_Content	
+	iaddq -1, %rdx						# len--
+	jg Last_Loop_Content
 
 
 
