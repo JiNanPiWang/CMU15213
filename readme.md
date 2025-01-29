@@ -12,7 +12,7 @@
    
 - Buffer Lab (旧版) - 第3章 程序的机器级表示 (现已被Attack Lab替代)
 
-4. Architecture Lab: 第4章 - 处理器体系结构
+4. Architecture Lab: 第4章（最好看看第5章） - 处理器体系结构
    关注处理器设计和优化
 
 5. Cache Lab: 第6章 - 存储器层次结构
