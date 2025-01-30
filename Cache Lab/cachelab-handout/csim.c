@@ -4,12 +4,13 @@
 #include <unistd.h>
 #include "cachelab.h"
 
-int main(int argc, char *argv[])
+int set_index_bits = 0, lines_per_set = 0, block_offset_bits = 0;
+char *tracefile = NULL;
+
+void read_args(int argc, char *argv[])
 {
     int opt;
     int verbose = 0;
-    int set_index_bits = 0, lines_per_set = 0, block_offset_bits = 0;
-    char *tracefile = NULL;
 
     // 解析命令行参数
     // getopt 函数会从 argv 中提取命令行参数。你通过指定参数字符串来告诉它需要处理的选项。
@@ -57,12 +58,48 @@ int main(int argc, char *argv[])
         }
     }
 
+    // 确保所有必须的参数都有提供
+    if (set_index_bits == -1 || 
+        lines_per_set == -1 || 
+        block_offset_bits == -1 || 
+        tracefile == NULL) 
+    {
+        fprintf(stderr, "Error: Missing required parameters\n");
+        exit(1);
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    read_args(argc, argv);
+
     // 打印解析的参数值
     printf("Verbose mode: %s\n", verbose ? "Enabled" : "Disabled");
     printf("Set index bits: %d, Lines per set: %d, Block offset bits: %d, Tracefile: %s\n", 
             set_index_bits, lines_per_set, block_offset_bits, tracefile);
-    printSummary(0, 0, 0);
+
+    FILE *file;
+    char buffer[256]; // 用于存储每行内容的缓冲区
+
+    // 打开文件
+    file = fopen(tracefile, "r");
+    if (file == NULL) 
+    {
+        perror("Error opening file"); // 如果文件打开失败，打印错误信息
+        return EXIT_FAILURE;
+    }
+
+    // 逐行读取文件内容
+    while (fgets(buffer, sizeof(buffer), file) != NULL) 
+    {
+        printf("%s", buffer); // 打印每一行内容
+    }
+
+    // 关闭文件
+    fclose(file);
+    
     // 在这里可以继续根据解析的参数执行后续的操作
+    printSummary(0, 0, 0);
 
     return 0;
 }
