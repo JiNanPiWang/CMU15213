@@ -4,13 +4,17 @@
 #include <unistd.h>
 #include "cachelab.h"
 
-int set_index_bits = 0, lines_per_set = 0, block_offset_bits = 0;
+int set_index_bits = 0, lines_per_set = 0, block_offset_bits = 0, verbose = 0;
 char *tracefile = NULL;
+
+struct
+{
+
+} cache[32][5][32];
 
 void read_args(int argc, char *argv[])
 {
     int opt;
-    int verbose = 0;
 
     // 解析命令行参数
     // getopt 函数会从 argv 中提取命令行参数。你通过指定参数字符串来告诉它需要处理的选项。
@@ -59,14 +63,63 @@ void read_args(int argc, char *argv[])
     }
 
     // 确保所有必须的参数都有提供
-    if (set_index_bits == -1 || 
-        lines_per_set == -1 || 
-        block_offset_bits == -1 || 
-        tracefile == NULL) 
+    if (set_index_bits == -1 ||
+        lines_per_set == -1 ||
+        block_offset_bits == -1 ||
+        tracefile == NULL)
     {
         fprintf(stderr, "Error: Missing required parameters\n");
         exit(1);
     }
+}
+
+// 创建一个掩码，用于提取64位数第 x 位到第 y 位
+unsigned long bits_mask(int x, int y)
+{
+    unsigned long mask = -1;
+    return ((mask >> x) & (mask << (63 - y)));
+}
+
+void get_id(unsigned long addr, unsigned long *set_id, unsigned long *block_id, unsigned long *tag)
+{
+    *block_id = addr & bits_mask(63 - block_offset_bits + 1, 63);
+
+    *set_id = (addr &
+              bits_mask(63 - block_offset_bits - set_index_bits + 1, 63 - block_offset_bits)) >>
+              (block_offset_bits);
+    *tag = (addr &
+           bits_mask(0, 63 - block_offset_bits - set_index_bits)) >>
+           (block_offset_bits + set_index_bits);
+}
+
+void trace_process(char *trace, int num_process)
+{
+    if (trace[0] == 'I')
+        return;
+
+    char type;
+    unsigned long addr, set_id, block_id, tag;
+    int len;
+    sscanf(trace, " %c %lx,%d", &type, &addr, &len);
+    get_id(addr, &set_id, &block_id, &tag);
+    switch (type)
+    {
+    case 'L':
+        /* code */
+        break;
+    case 'M':
+        /* code */
+        break;
+    case 'S':
+        /* code */
+        break;
+    default:
+        exit(1);
+        break;
+    }
+
+    // printf("Type: %c, addr: %lx, len: %d\n", type, addr, len);
+    printf("Set ID: %lu, Block ID: %lu, Tag: %lu\n", set_id, block_id, tag);
 }
 
 int main(int argc, char *argv[])
@@ -75,29 +128,30 @@ int main(int argc, char *argv[])
 
     // 打印解析的参数值
     printf("Verbose mode: %s\n", verbose ? "Enabled" : "Disabled");
-    printf("Set index bits: %d, Lines per set: %d, Block offset bits: %d, Tracefile: %s\n", 
-            set_index_bits, lines_per_set, block_offset_bits, tracefile);
+    printf("Set index bits: %d, Lines per set: %d, Block offset bits: %d, Tracefile: %s\n",
+           set_index_bits, lines_per_set, block_offset_bits, tracefile);
 
     FILE *file;
     char buffer[256]; // 用于存储每行内容的缓冲区
 
     // 打开文件
     file = fopen(tracefile, "r");
-    if (file == NULL) 
+    if (file == NULL)
     {
         perror("Error opening file"); // 如果文件打开失败，打印错误信息
         return EXIT_FAILURE;
     }
 
     // 逐行读取文件内容
-    while (fgets(buffer, sizeof(buffer), file) != NULL) 
+    int num_process = 0;
+    while (fgets(buffer, sizeof(buffer), file) != NULL)
     {
-        printf("%s", buffer); // 打印每一行内容
+        trace_process(buffer, num_process);
     }
 
     // 关闭文件
     fclose(file);
-    
+
     // 在这里可以继续根据解析的参数执行后续的操作
     printSummary(0, 0, 0);
 

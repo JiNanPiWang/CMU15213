@@ -33,14 +33,23 @@ M 12,1
 
 这些地址写成二进制是：
 ```
-0000 0001 0000
-0000 0010 0000
-0000 0010 0010
-0000 0010 1000
-0001 0001 0000
-0010 0001 0000
-0000 0001 0010
-0000 0001 0010
+0000 0001 0000, load     miss
+0000 0010 0000, modify   miss hit
+0000 0010 0010, load     hit
+0000 0001 1000, store    hit
+0001 0001 0000, load     miss eviction
+0010 0001 0000, load     miss eviction
+0000 0001 0010, modify   miss eviction hit
+```
+
+```
+ L 10,1 miss
+ M 20,1 miss hit
+ L 22,1 hit
+ S 18,1 hit
+ L 110,1 miss eviction
+ L 210,1 miss eviction
+ M 12,1 miss eviction hit
 ```
 
 我们需要倒着看，最后对应的是某组某行内的块编号，4位，再向左数4位，就是组编号，再前面的内容就是tag。
