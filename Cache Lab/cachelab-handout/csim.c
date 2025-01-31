@@ -4,13 +4,16 @@
 #include <unistd.h>
 #include "cachelab.h"
 
-int set_index_bits = 0, lines_per_set = 0, block_offset_bits = 0, verbose = 0;
+int set_index_bits, lines_per_set, block_offset_bits, verbose;
+int miss_count, hit_count, evict_count;
 char *tracefile = NULL;
 
-struct
+struct Cache
 {
-
-} cache[32][5][32];
+    int time;
+    unsigned long tag;
+};
+struct Cache cache[32][5]; // set times line
 
 void read_args(int argc, char *argv[])
 {
@@ -85,11 +88,30 @@ void get_id(unsigned long addr, unsigned long *set_id, unsigned long *block_id, 
     *block_id = addr & bits_mask(63 - block_offset_bits + 1, 63);
 
     *set_id = (addr &
-              bits_mask(63 - block_offset_bits - set_index_bits + 1, 63 - block_offset_bits)) >>
+               bits_mask(63 - block_offset_bits - set_index_bits + 1, 63 - block_offset_bits)) >>
               (block_offset_bits);
     *tag = (addr &
-           bits_mask(0, 63 - block_offset_bits - set_index_bits)) >>
+            bits_mask(0, 63 - block_offset_bits - set_index_bits)) >>
            (block_offset_bits + set_index_bits);
+}
+
+int evict(int set_id)
+{
+    int min_time = cache[set_id][0].time, min_num = 0;
+    for (int i = 0; i < lines_per_set; ++i)
+    {
+        if (cache[set_id][i].time == -1)
+        {
+            return i;
+        }
+        if (cache[set_id][i].time < min_time)
+        {
+            min_time = cache[set_id][i].time;
+            min_num = i;
+        }
+    }
+    ++evict_count;
+    return min_num;
 }
 
 void trace_process(char *trace, int num_process)
@@ -102,16 +124,35 @@ void trace_process(char *trace, int num_process)
     int len;
     sscanf(trace, " %c %lx,%d", &type, &addr, &len);
     get_id(addr, &set_id, &block_id, &tag);
+
+    // 判断addr对应的内容在不在cache里面，遍历line，查看tag是否在其中
+    int found_trace_in_cache = 0;
+    for (int i = 0; i < lines_per_set; ++i)
+    {
+        if (cache[set_id][i].tag == tag)
+        {
+            ++hit_count;
+            cache[set_id][i].time = num_process;
+            found_trace_in_cache = 1;
+            break;
+        }
+    }
+
+    if (found_trace_in_cache)
+        return;
+    ++miss_count;
+    int free_line = evict(set_id);
+    cache[set_id][free_line].time = num_process;
+    cache[set_id][free_line].tag = tag;
+    
     switch (type)
     {
     case 'L':
-        /* code */
         break;
     case 'M':
-        /* code */
+        ++hit_count;
         break;
     case 'S':
-        /* code */
         break;
     default:
         exit(1);
@@ -122,8 +163,19 @@ void trace_process(char *trace, int num_process)
     printf("Set ID: %lu, Block ID: %lu, Tag: %lu\n", set_id, block_id, tag);
 }
 
+void init()
+{
+    for (int i = 0; i < 32; ++i)
+        for (int j = 0; j < 5; ++j)
+        {
+            cache[i][j].time = -1;
+            cache[i][j].tag = -1;
+        }
+}
+
 int main(int argc, char *argv[])
 {
+    init();
     read_args(argc, argv);
 
     // 打印解析的参数值
@@ -147,13 +199,14 @@ int main(int argc, char *argv[])
     while (fgets(buffer, sizeof(buffer), file) != NULL)
     {
         trace_process(buffer, num_process);
+        printf("Miss count: %d, Hit count: %d, Evict count: %d\n", miss_count, hit_count, evict_count);
     }
 
     // 关闭文件
     fclose(file);
 
     // 在这里可以继续根据解析的参数执行后续的操作
-    printSummary(0, 0, 0);
+    printSummary(hit_count, miss_count, evict_count);
 
     return 0;
 }
