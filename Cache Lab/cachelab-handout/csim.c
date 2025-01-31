@@ -125,6 +125,16 @@ void trace_process(char *trace, int num_process)
     sscanf(trace, " %c %lx,%d", &type, &addr, &len);
     get_id(addr, &set_id, &block_id, &tag);
 
+    // 特判Modify，拆分成load和store
+    if (type == 'M')
+    {
+        trace[1] = 'L';
+        trace_process(trace, num_process);
+        trace[1] = 'S';
+        trace_process(trace, num_process);
+        return;
+    }
+
     // 判断addr对应的内容在不在cache里面，遍历line，查看tag是否在其中
     int found_trace_in_cache = 0;
     for (int i = 0; i < lines_per_set; ++i)
@@ -144,20 +154,19 @@ void trace_process(char *trace, int num_process)
     int free_line = evict(set_id);
     cache[set_id][free_line].time = num_process;
     cache[set_id][free_line].tag = tag;
-    
-    switch (type)
-    {
-    case 'L':
-        break;
-    case 'M':
-        ++hit_count;
-        break;
-    case 'S':
-        break;
-    default:
-        exit(1);
-        break;
-    }
+
+    // switch (type)
+    // {
+    // case 'L':
+    //     break;
+    // case 'M':
+    //     break;
+    // case 'S':
+    //     break;
+    // default:
+    //     exit(1);
+    //     break;
+    // }
 
     // printf("Type: %c, addr: %lx, len: %d\n", type, addr, len);
     printf("Set ID: %lu, Block ID: %lu, Tag: %lu\n", set_id, block_id, tag);
