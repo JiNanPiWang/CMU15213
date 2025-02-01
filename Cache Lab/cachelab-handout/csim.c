@@ -116,7 +116,7 @@ int evict(int set_id)
 
 void trace_process(char *trace, int num_process)
 {
-    if (trace[0] == 'I')
+    if (trace[1] != 'L' && trace[1] != 'M' && trace[1] != 'S')
         return;
 
     char type;
@@ -139,7 +139,7 @@ void trace_process(char *trace, int num_process)
     int found_trace_in_cache = 0;
     for (int i = 0; i < lines_per_set; ++i)
     {
-        if (cache[set_id][i].tag == tag)
+        if (cache[set_id][i].tag == tag && cache[set_id][i].time != -1)
         {
             ++hit_count;
             cache[set_id][i].time = num_process;
@@ -154,19 +154,6 @@ void trace_process(char *trace, int num_process)
     int free_line = evict(set_id);
     cache[set_id][free_line].time = num_process;
     cache[set_id][free_line].tag = tag;
-
-    // switch (type)
-    // {
-    // case 'L':
-    //     break;
-    // case 'M':
-    //     break;
-    // case 'S':
-    //     break;
-    // default:
-    //     exit(1);
-    //     break;
-    // }
 
     // printf("Type: %c, addr: %lx, len: %d\n", type, addr, len);
     printf("Set ID: %lu, Block ID: %lu, Tag: %lu\n", set_id, block_id, tag);
@@ -202,12 +189,12 @@ int main(int argc, char *argv[])
         perror("Error opening file"); // 如果文件打开失败，打印错误信息
         return EXIT_FAILURE;
     }
-
     // 逐行读取文件内容
     int num_process = 0;
     while (fgets(buffer, sizeof(buffer), file) != NULL)
     {
         trace_process(buffer, num_process);
+        ++num_process;
         printf("Miss count: %d, Hit count: %d, Evict count: %d\n", miss_count, hit_count, evict_count);
     }
 
