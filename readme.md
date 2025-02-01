@@ -15,7 +15,7 @@
 4. Architecture Lab: 第4章 和 第5章 - 处理器体系结构
    关注处理器设计和优化
 
-5. Cache Lab: 第6章 - 存储器层次结构
+5. Cache Lab: 第5章 和 第6章 - 存储器层次结构
    理解高速缓存的工作原理和性能优化
 
 6. Performance Lab: 第5章 和 第6章
