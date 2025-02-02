@@ -78,6 +78,56 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
             }
         }  
     }
+    else if (M == 61)
+    {
+        const int BLOCK_SIZE = 4;
+        for (i = 0; i < N / BLOCK_SIZE * BLOCK_SIZE; i += BLOCK_SIZE) 
+        {
+            for (j = 0; j < M / BLOCK_SIZE * BLOCK_SIZE; j += BLOCK_SIZE) 
+            {
+                for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+                {
+                    a0 = A[ii][j];
+                    a1 = A[ii][j + 1];
+                    a2 = A[ii][j + 2];
+                    a3 = A[ii][j + 3];
+
+                    B[j][ii] = a0;
+                    B[j + 1][ii] = a1;
+                    B[j + 2][ii] = a2;
+                    B[j + 3][ii] = a3;
+                }
+            }
+        }  
+        // 处理剩余的列（如果有的话，处理不完整的块）
+        for (i = 0; i < N / BLOCK_SIZE * BLOCK_SIZE; i++) 
+        {
+            for (j = M / BLOCK_SIZE * BLOCK_SIZE; j < M; j++) 
+            {
+                a0 = A[i][j];
+                B[j][i] = a0;
+            }
+        }
+
+        // 处理剩余的行（如果有的话，处理不完整的块）
+        for (i = N / BLOCK_SIZE * BLOCK_SIZE; i < N; i++) 
+        {
+            for (j = 0; j < M / BLOCK_SIZE * BLOCK_SIZE; j++) 
+            {
+                a0 = A[i][j];
+                B[j][i] = a0;
+            }
+        }
+        // 处理尾部（非完全块部分）
+        for (i = N / BLOCK_SIZE * BLOCK_SIZE; i < N; i++) 
+        {
+            for (j = M / BLOCK_SIZE * BLOCK_SIZE; j < M; j++) 
+            {
+                a0 = A[i][j];
+                B[j][i] = a0;
+            }
+        }
+    }
 }
 
 /* 
