@@ -27,32 +27,57 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
     const int BLOCK_SIZE = 8;
     int i, j;
     int a0, a1, a2, a3, a4, a5, a6, a7;
-    for (i = 0; i < N; i += BLOCK_SIZE) 
+    if (M == 32)
     {
-        for (j = 0; j < M; j += BLOCK_SIZE) 
+        for (i = 0; i < N; i += BLOCK_SIZE) 
         {
-            for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+            for (j = 0; j < M; j += BLOCK_SIZE) 
             {
-                a0 = A[ii][j];
-                a1 = A[ii][j + 1];
-                a2 = A[ii][j + 2];
-                a3 = A[ii][j + 3];
-                a4 = A[ii][j + 4];
-                a5 = A[ii][j + 5];
-                a6 = A[ii][j + 6];
-                a7 = A[ii][j + 7];
+                for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+                {
+                    a0 = A[ii][j];
+                    a1 = A[ii][j + 1];
+                    a2 = A[ii][j + 2];
+                    a3 = A[ii][j + 3];
+                    a4 = A[ii][j + 4];
+                    a5 = A[ii][j + 5];
+                    a6 = A[ii][j + 6];
+                    a7 = A[ii][j + 7];
 
-                B[j][ii] = a0;
-                B[j + 1][ii] = a1;
-                B[j + 2][ii] = a2;
-                B[j + 3][ii] = a3;
-                B[j + 4][ii] = a4;
-                B[j + 5][ii] = a5;
-                B[j + 6][ii] = a6;
-                B[j + 7][ii] = a7;
+                    B[j][ii] = a0;
+                    B[j + 1][ii] = a1;
+                    B[j + 2][ii] = a2;
+                    B[j + 3][ii] = a3;
+                    B[j + 4][ii] = a4;
+                    B[j + 5][ii] = a5;
+                    B[j + 6][ii] = a6;
+                    B[j + 7][ii] = a7;
+                }
             }
-        }
-    }  
+        }  
+    }
+    else if (M == 64)
+    {
+        const int BLOCK_SIZE = 4;
+        for (i = 0; i < N; i += BLOCK_SIZE) 
+        {
+            for (j = 0; j < M; j += BLOCK_SIZE) 
+            {
+                for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+                {
+                    a0 = A[ii][j];
+                    a1 = A[ii][j + 1];
+                    a2 = A[ii][j + 2];
+                    a3 = A[ii][j + 3];
+
+                    B[j][ii] = a0;
+                    B[j + 1][ii] = a1;
+                    B[j + 2][ii] = a2;
+                    B[j + 3][ii] = a3;
+                }
+            }
+        }  
+    }
 }
 
 /* 
