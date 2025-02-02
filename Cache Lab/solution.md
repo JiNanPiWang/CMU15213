@@ -271,3 +271,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 ```
+
+## cache2
+
+cache是32x32的，有32个set，每个set存32个字节。8x8的时候，所有的cache line可以存下8行所有的内容，不用切换，而32x32，存不下。
