@@ -80,7 +80,7 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
     }
     else if (M == 61)
     {
-        const int BLOCK_SIZE = 4;
+        const int BLOCK_SIZE = 7;
         for (i = 0; i < N / BLOCK_SIZE * BLOCK_SIZE; i += BLOCK_SIZE) 
         {
             for (j = 0; j < M / BLOCK_SIZE * BLOCK_SIZE; j += BLOCK_SIZE) 
@@ -91,11 +91,17 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
                     a1 = A[ii][j + 1];
                     a2 = A[ii][j + 2];
                     a3 = A[ii][j + 3];
+                    a4 = A[ii][j + 4];
+                    a5 = A[ii][j + 5];
+                    a6 = A[ii][j + 6];
 
                     B[j][ii] = a0;
                     B[j + 1][ii] = a1;
                     B[j + 2][ii] = a2;
                     B[j + 3][ii] = a3;
+                    B[j + 4][ii] = a4;
+                    B[j + 5][ii] = a5;
+                    B[j + 6][ii] = a6;
                 }
             }
         }  
