@@ -26,7 +26,7 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
     const int BLOCK_SIZE = 8;
     int i, j;
-    int a0, a1, a2, a3, a4, a5, a6, a7;
+    int a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10;
     if (M == 32)
     {
         for (i = 0; i < N; i += BLOCK_SIZE) 
@@ -76,11 +76,11 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
                     B[j + 3][ii] = a3;
                 }
             }
-        }  
+        }
     }
     else if (M == 61)
     {
-        const int BLOCK_SIZE = 7;
+        const int BLOCK_SIZE = 11;
         for (i = 0; i < N / BLOCK_SIZE * BLOCK_SIZE; i += BLOCK_SIZE) 
         {
             for (j = 0; j < M / BLOCK_SIZE * BLOCK_SIZE; j += BLOCK_SIZE) 
@@ -94,6 +94,10 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
                     a4 = A[ii][j + 4];
                     a5 = A[ii][j + 5];
                     a6 = A[ii][j + 6];
+                    a7 = A[ii][j + 7];
+                    a8 = A[ii][j + 8];
+                    a9 = A[ii][j + 9];
+                    a10 = A[ii][j + 10];
 
                     B[j][ii] = a0;
                     B[j + 1][ii] = a1;
@@ -102,6 +106,10 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
                     B[j + 4][ii] = a4;
                     B[j + 5][ii] = a5;
                     B[j + 6][ii] = a6;
+                    B[j + 7][ii] = a7;
+                    B[j + 8][ii] = a8;
+                    B[j + 9][ii] = a9;
+                    B[j + 10][ii] = a10;
                 }
             }
         }  
@@ -114,7 +122,6 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
                 B[j][i] = a0;
             }
         }
-
         // 处理剩余的行（如果有的话，处理不完整的块）
         for (i = N / BLOCK_SIZE * BLOCK_SIZE; i < N; i++) 
         {
