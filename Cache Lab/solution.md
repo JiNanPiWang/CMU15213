@@ -281,6 +281,130 @@ int main(int argc, char *argv[])
 同理，64x64的时候，每一行需要64x4个字节，一样的计算，我们分块大小需要变成4x4。拿满分需要8x8块内再分块4x4
 
 而61x67的，因为都是质数，所以cache组会错开，分块尽量大一点就行了。但是哪个冲突次数最少得试，分块11的时候就满分了。
+
+```c
+void transpose_submit(int M, int N, int A[N][M], int B[M][N])
+{
+    const int BLOCK_SIZE = 8;
+    int i, j;
+    int a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10;
+    if (M == 32)
+    {
+        for (i = 0; i < N; i += BLOCK_SIZE) 
+        {
+            for (j = 0; j < M; j += BLOCK_SIZE) 
+            {
+                for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+                {
+                    a0 = A[ii][j];
+                    a1 = A[ii][j + 1];
+                    a2 = A[ii][j + 2];
+                    a3 = A[ii][j + 3];
+                    a4 = A[ii][j + 4];
+                    a5 = A[ii][j + 5];
+                    a6 = A[ii][j + 6];
+                    a7 = A[ii][j + 7];
+
+                    B[j][ii] = a0;
+                    B[j + 1][ii] = a1;
+                    B[j + 2][ii] = a2;
+                    B[j + 3][ii] = a3;
+                    B[j + 4][ii] = a4;
+                    B[j + 5][ii] = a5;
+                    B[j + 6][ii] = a6;
+                    B[j + 7][ii] = a7;
+                }
+            }
+        }  
+    }
+    else if (M == 64)
+    {
+        const int BLOCK_SIZE = 4;
+        for (i = 0; i < N; i += BLOCK_SIZE) 
+        {
+            for (j = 0; j < M; j += BLOCK_SIZE) 
+            {
+                for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+                {
+                    a0 = A[ii][j];
+                    a1 = A[ii][j + 1];
+                    a2 = A[ii][j + 2];
+                    a3 = A[ii][j + 3];
+
+                    B[j][ii] = a0;
+                    B[j + 1][ii] = a1;
+                    B[j + 2][ii] = a2;
+                    B[j + 3][ii] = a3;
+                }
+            }
+        }
+    }
+    else if (M == 61)
+    {
+        const int BLOCK_SIZE = 11;
+        for (i = 0; i < N / BLOCK_SIZE * BLOCK_SIZE; i += BLOCK_SIZE) 
+        {
+            for (j = 0; j < M / BLOCK_SIZE * BLOCK_SIZE; j += BLOCK_SIZE) 
+            {
+                for (int ii = i; ii < i + BLOCK_SIZE; ++ii)
+                {
+                    a0 = A[ii][j];
+                    a1 = A[ii][j + 1];
+                    a2 = A[ii][j + 2];
+                    a3 = A[ii][j + 3];
+                    a4 = A[ii][j + 4];
+                    a5 = A[ii][j + 5];
+                    a6 = A[ii][j + 6];
+                    a7 = A[ii][j + 7];
+                    a8 = A[ii][j + 8];
+                    a9 = A[ii][j + 9];
+                    a10 = A[ii][j + 10];
+
+                    B[j][ii] = a0;
+                    B[j + 1][ii] = a1;
+                    B[j + 2][ii] = a2;
+                    B[j + 3][ii] = a3;
+                    B[j + 4][ii] = a4;
+                    B[j + 5][ii] = a5;
+                    B[j + 6][ii] = a6;
+                    B[j + 7][ii] = a7;
+                    B[j + 8][ii] = a8;
+                    B[j + 9][ii] = a9;
+                    B[j + 10][ii] = a10;
+                }
+            }
+        }  
+        // 处理剩余的列（如果有的话，处理不完整的块）
+        for (i = 0; i < N / BLOCK_SIZE * BLOCK_SIZE; i++) 
+        {
+            for (j = M / BLOCK_SIZE * BLOCK_SIZE; j < M; j++) 
+            {
+                a0 = A[i][j];
+                B[j][i] = a0;
+            }
+        }
+        // 处理剩余的行（如果有的话，处理不完整的块）
+        for (i = N / BLOCK_SIZE * BLOCK_SIZE; i < N; i++) 
+        {
+            for (j = 0; j < M / BLOCK_SIZE * BLOCK_SIZE; j++) 
+            {
+                a0 = A[i][j];
+                B[j][i] = a0;
+            }
+        }
+        // 处理尾部（非完全块部分）
+        for (i = N / BLOCK_SIZE * BLOCK_SIZE; i < N; i++) 
+        {
+            for (j = M / BLOCK_SIZE * BLOCK_SIZE; j < M; j++) 
+            {
+                a0 = A[i][j];
+                B[j][i] = a0;
+            }
+        }
+    }
+}
+```
+
 ```
 Cache Lab summary:
                         Points   Max pts      Misses
