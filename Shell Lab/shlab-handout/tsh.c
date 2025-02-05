@@ -196,9 +196,15 @@ void eval(char *cmdline)
     {
         
     }
-    else
+    else if (strcmp(cmds[0], "/bin/echo") == 0)
     {
-        
+        for (int i = 1; i < n; ++i)
+        {
+            printf("%s", cmds[i]);
+            if (i != n - 1)
+                printf(" ");
+        }
+        printf("\n");
     }
 
     return;
