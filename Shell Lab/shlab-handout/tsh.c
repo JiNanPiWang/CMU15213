@@ -130,7 +130,6 @@ int main(int argc, char **argv)
 
     /* Execute the shell's read/eval loop */
     while (1) {
-
 	/* Read command line */
 	if (emit_prompt) {
 	    printf("%s", prompt);
@@ -165,6 +164,20 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    // 第一次调用strtok，传入要分割的字符串和分隔符
+
+    int n = 0;
+    char **cmds = NULL;
+    char *token = strtok(cmdline, " ");
+    while (token != NULL)
+    {
+        cmds = realloc(cmds, sizeof(char*) * (n + 1));
+        cmds[n] = malloc(strlen(token) + 1);
+        strcpy(cmds[n], token);
+        printf("Token %d: %s\n", n, cmds[n]);
+        ++n;
+        token = strtok(NULL, " ");
+    }
     return;
 }
 
