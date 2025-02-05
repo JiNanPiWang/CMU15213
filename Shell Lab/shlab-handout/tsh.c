@@ -164,20 +164,43 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    // 第一次调用strtok，传入要分割的字符串和分隔符
-
     int n = 0;
     char **cmds = NULL;
+    // 第一次调用strtok，传入要分割的字符串和分隔符
     char *token = strtok(cmdline, " ");
     while (token != NULL)
     {
         cmds = realloc(cmds, sizeof(char*) * (n + 1));
         cmds[n] = malloc(strlen(token) + 1);
         strcpy(cmds[n], token);
-        printf("Token %d: %s\n", n, cmds[n]);
+        // printf("Token %d: %s\n", n, cmds[n]);
         ++n;
         token = strtok(NULL, " ");
     }
+    // 去除最后一个换行符
+    cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\0';
+
+    if (strcmp(cmds[0], "quit") == 0)
+    {
+        exit(0);
+    }
+    else if (strcmp(cmds[0], "jobs") == 0)
+    {
+
+    }
+    else if (strcmp(cmds[0], "bg") == 0)
+    {
+        
+    }
+    else if (strcmp(cmds[0], "fg") == 0)
+    {
+        
+    }
+    else
+    {
+        
+    }
+
     return;
 }
 
