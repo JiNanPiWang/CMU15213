@@ -57,7 +57,7 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
 int builtin_cmd(char **argv);
-void do_bgfg(char **argv);
+void do_bgfg(char **argv, int n);
 void waitfg(pid_t pid);
 
 void sigchld_handler(int sig);
@@ -161,52 +161,80 @@ int main(int argc, char **argv)
  * each child process must have a unique process group ID so that our
  * background children don't receive SIGINT (SIGTSTP) from the kernel
  * when we type ctrl-c (ctrl-z) at the keyboard.  
+ * 一次读一行，判断标准是cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\n'
+ * 一次也是处理一行
 */
 void eval(char *cmdline) 
 {
     int n = 0;
-    char **cmds = NULL;
     // 第一次调用strtok，传入要分割的字符串和分隔符
+    char **cmds = NULL;
     char *token = strtok(cmdline, " ");
     while (token != NULL)
     {
         cmds = realloc(cmds, sizeof(char*) * (n + 1));
         cmds[n] = malloc(strlen(token) + 1);
         strcpy(cmds[n], token);
-        // printf("Token %d: %s\n", n, cmds[n]);
         ++n;
         token = strtok(NULL, " ");
-    }
-    // 去除最后一个换行符
-    cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\0';
 
-    if (strcmp(cmds[0], "quit") == 0)
-    {
-        exit(0);
-    }
-    else if (strcmp(cmds[0], "jobs") == 0)
-    {
-
-    }
-    else if (strcmp(cmds[0], "bg") == 0)
-    {
-        
-    }
-    else if (strcmp(cmds[0], "fg") == 0)
-    {
-        
-    }
-    else if (strcmp(cmds[0], "/bin/echo") == 0)
-    {
-        for (int i = 1; i < n; ++i)
+        // 一次读一行
+        if (cmds[n - 1][strlen(cmds[n - 1]) - 1] == '\n')
         {
-            printf("%s", cmds[i]);
-            if (i != n - 1)
-                printf(" ");
-        }
-        printf("\n");
-    }
+            // 去除最后一个换行符
+            cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\0';
 
+            // 处理这一行的所有指令
+            int is_bg = strcmp(cmds[n - 1], "&") != 0;
+            if (strcmp(cmds[0], "quit") == 0 || 
+                strcmp(cmds[0], "fg") == 0 ||
+                strcmp(cmds[0], "bg") == 0 ||
+                strcmp(cmds[0], "jobs") == 0)
+            {
+                // builtin_cmd在当前进程执行，否则新建子进程执行
+                builtin_cmd(cmds);
+                for (int i = 0; i < n; ++i)
+                {
+                    free(cmds[i]);
+                }
+                break;
+            }
+            else
+            {
+                pid_t pid = fork();
+                if (pid == -1) 
+                {
+                    // 如果 fork 失败
+                    perror("fork failed");
+                    exit(1);
+                }
+                if (pid == 0) 
+                {
+                    // 子进程：执行命令
+                    do_bgfg(cmds, n);
+                    
+                    // 子进程使用的话，就自己释放cmds
+                    for (int i = 0; i < n; ++i)
+                    {
+                        free(cmds[i]);
+                    }
+                    exit(0);  // 子进程退出
+                }
+                else
+                {
+                    // 父进程不立即释放资源，子进程释放
+                    if (!is_bg)
+                    {
+                        // 如果是前台任务，等待子进程结束
+                        // 如果是后台任务，不等待，立即返回
+                        waitpid(pid, NULL, 0);  // 等待子进程退出
+                    }
+                }
+                break;
+            }
+            cmds = NULL;
+        }
+    }
     return;
 }
 
@@ -273,15 +301,59 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+    int idx = 0;
+    if (strcmp(argv[idx], "quit") == 0)
+    {
+        exit(0);
+    }
+    else if (strcmp(argv[idx], "jobs") == 0)
+    {
+    }
+    else if (strcmp(argv[idx], "bg") == 0)
+    {
+        
+    }
+    else if (strcmp(argv[idx], "fg") == 0)
+    {
+        
+    }
     return 0;     /* not a builtin command */
 }
 
 /* 
  * do_bgfg - Execute the builtin bg and fg commands
  */
-void do_bgfg(char **argv) 
+void do_bgfg(char **argv, int n) 
 {
-    return;
+    int idx = 0;
+    if (strcmp(argv[idx], "/bin/echo") == 0)
+    {
+        ++idx;
+        // echo输出后面的所有内容，-e需要转义
+        if (strcmp(argv[idx], "-e") == 0)
+        {
+            ++idx;
+            for (; idx < n; ++idx)
+            {
+                if (strcmp(argv[idx], "\\046") == 0)
+                    printf("&");
+                else
+                    printf("%s", argv[idx]);
+                if (idx != n - 1)
+                    printf(" ");
+            }
+        }
+        else
+        {
+            for (; idx < n; ++idx)
+            {
+                printf("%s", argv[idx]);
+                if (idx != n - 1)
+                    printf(" ");
+            }
+        }
+        printf("\n");
+    }
 }
 
 /* 
