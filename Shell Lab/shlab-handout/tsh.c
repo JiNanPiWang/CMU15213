@@ -245,9 +245,13 @@ void eval(char *cmdline)
                         printf("[%d] (%d) ", nextjid, pid);
                         for (int i = 0; cmd_meta[command_line_num][i] != NULL; ++i)
                         {
-                            printf("%s ", cmd_meta[command_line_num][i]);
+                            strcat(sbuf, cmd_meta[command_line_num][i]);
+                            strcat(sbuf, " ");
                         }
-                        printf("&\n");
+                        strcat(sbuf, "&");
+                        printf("%s\n", sbuf);
+                        addjob(jobs, pid, BG, sbuf);
+                        sbuf[0] = '\0';
                     }
                 }
             }
@@ -337,6 +341,16 @@ int builtin_cmd(char **argv)
     }
     else if (strcmp(argv[idx], "jobs") == 0)
     {
+        for (int i = 0; i < MAXJOBS; i++)
+        {
+            if (jobs[i].pid != 0)
+            {
+                printf("[%d] (%d) ", jobs[i].jid, jobs[i].pid);
+                if (jobs[i].state == BG)
+                    printf("Running ");
+                printf("%s\n", jobs[i].cmdline);
+            }
+        }
     }
     else if (strcmp(argv[idx], "bg") == 0)
     {
