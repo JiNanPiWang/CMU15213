@@ -57,7 +57,7 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
 int builtin_cmd(char **argv);
-void do_bgfg(char **argv, int n);
+void do_bgfg(char **argv);
 void waitfg(pid_t pid);
 
 void sigchld_handler(int sig);
@@ -167,8 +167,12 @@ int main(int argc, char **argv)
 void eval(char *cmdline) 
 {
     int n = 0;
-    // 第一次调用strtok，传入要分割的字符串和分隔符
+    int command_line_num = 0;
+    // cmd_meta存入所有行的指令，防止销毁后找不到
+    char ***cmd_meta = malloc(sizeof(char**) * MAXJID);
     char **cmds = NULL;
+
+    // 第一次调用strtok，传入要分割的字符串和分隔符
     char *token = strtok(cmdline, " ");
     while (token != NULL)
     {
@@ -183,8 +187,12 @@ void eval(char *cmdline)
         {
             // 去除最后一个换行符
             cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\0';
+            // 最后一个指令是空指令
+            cmds = realloc(cmds, sizeof(char*) * (n + 1));
+            cmds[n] = NULL; 
 
             // 处理这一行的所有指令
+            cmd_meta[command_line_num] = cmds;
             int is_bg = strcmp(cmds[n - 1], "&") != 0;
             if (strcmp(cmds[0], "quit") == 0 || 
                 strcmp(cmds[0], "fg") == 0 ||
@@ -193,11 +201,6 @@ void eval(char *cmdline)
             {
                 // builtin_cmd在当前进程执行，否则新建子进程执行
                 builtin_cmd(cmds);
-                for (int i = 0; i < n; ++i)
-                {
-                    free(cmds[i]);
-                }
-                break;
             }
             else
             {
@@ -210,15 +213,12 @@ void eval(char *cmdline)
                 }
                 if (pid == 0) 
                 {
-                    // 子进程：执行命令
-                    do_bgfg(cmds, n);
-                    
-                    // 子进程使用的话，就自己释放cmds
-                    for (int i = 0; i < n; ++i)
-                    {
-                        free(cmds[i]);
-                    }
-                    exit(0);  // 子进程退出
+                    // 子进程：执行命令，使用 shell 执行命令
+                    // 第一个参数是 shell 程序，第二个参数是参数数组
+                    execvp(cmd_meta[command_line_num][0], cmd_meta[command_line_num]);
+                    // 如果 execvp 返回，表示出错
+                    perror("execvp failed");
+                    exit(1);
                 }
                 else
                 {
@@ -229,11 +229,26 @@ void eval(char *cmdline)
                         // 如果是后台任务，不等待，立即返回
                         waitpid(pid, NULL, 0);  // 等待子进程退出
                     }
+                    else
+                    {
+                        // 后台任务，添加到任务列表
+                        
+                    }
                 }
                 break;
             }
+            command_line_num++;
             cmds = NULL;
         }
+    }
+    waitpid(-1, NULL, 0);
+    for (int i = 0; i < command_line_num; ++i)
+    {
+        for (int j = 0; cmd_meta[i][j] != NULL; ++j)
+        {
+            free(cmd_meta[i][j]);
+        }
+        free(cmd_meta[i]);
     }
     return;
 }
@@ -323,37 +338,9 @@ int builtin_cmd(char **argv)
 /* 
  * do_bgfg - Execute the builtin bg and fg commands
  */
-void do_bgfg(char **argv, int n) 
+void do_bgfg(char **argv) 
 {
-    int idx = 0;
-    if (strcmp(argv[idx], "/bin/echo") == 0)
-    {
-        ++idx;
-        // echo输出后面的所有内容，-e需要转义
-        if (strcmp(argv[idx], "-e") == 0)
-        {
-            ++idx;
-            for (; idx < n; ++idx)
-            {
-                if (strcmp(argv[idx], "\\046") == 0)
-                    printf("&");
-                else
-                    printf("%s", argv[idx]);
-                if (idx != n - 1)
-                    printf(" ");
-            }
-        }
-        else
-        {
-            for (; idx < n; ++idx)
-            {
-                printf("%s", argv[idx]);
-                if (idx != n - 1)
-                    printf(" ");
-            }
-        }
-        printf("\n");
-    }
+    
 }
 
 /* 
