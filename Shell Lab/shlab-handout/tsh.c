@@ -176,11 +176,22 @@ void eval(char *cmdline)
     char *token = strtok(cmdline, " ");
     while (token != NULL)
     {
-        cmds = realloc(cmds, sizeof(char*) * (n + 1));
-        cmds[n] = malloc(strlen(token) + 1);
-        strcpy(cmds[n], token);
-        ++n;
-        token = strtok(NULL, " ");
+        if (strcmp(token, "\n") == 0)
+        {
+            // 把多的这一个换行加到上一个命令的最后
+            // 这个是特判trace06，因为有一个命令后面有一个空格
+            cmds[n - 1] = realloc(cmds[n - 1], strlen(cmds[n - 1]) + 1);
+            strcat(cmds[n - 1], "\n");
+        }
+        else
+        {   
+            // 分配内存，复制字符串
+            cmds = realloc(cmds, sizeof(char*) * (n + 1));
+            cmds[n] = malloc(strlen(token) + 1);
+            strcpy(cmds[n], token);
+            ++n;
+            token = strtok(NULL, " ");
+        }
 
         // 一次读一行
         if (cmds[n - 1][strlen(cmds[n - 1]) - 1] == '\n')
@@ -212,6 +223,7 @@ void eval(char *cmdline)
                     cmds = realloc(cmds, sizeof(char*) * (n + 1));
                     cmds[n] = NULL; 
                 }
+
                 cmd_meta[command_line_num] = cmds;
                 
                 pid_t pid = fork();
@@ -257,6 +269,7 @@ void eval(char *cmdline)
             }
             command_line_num++;
             cmds = NULL;
+            n = 0;
         }
     }
     waitpid(-1, NULL, 0);
@@ -341,16 +354,7 @@ int builtin_cmd(char **argv)
     }
     else if (strcmp(argv[idx], "jobs") == 0)
     {
-        for (int i = 0; i < MAXJOBS; i++)
-        {
-            if (jobs[i].pid != 0)
-            {
-                printf("[%d] (%d) ", jobs[i].jid, jobs[i].pid);
-                if (jobs[i].state == BG)
-                    printf("Running ");
-                printf("%s\n", jobs[i].cmdline);
-            }
-        }
+        listjobs(jobs);
     }
     else if (strcmp(argv[idx], "bg") == 0)
     {
@@ -402,6 +406,20 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    pid_t fg_pid = fgpid(jobs);  // 获取前台进程组的 PID
+    printf("fg_pid: %d\n", fg_pid);
+    if (fg_pid != 0)
+    {
+        if (kill(-fg_pid, sig) == -1) 
+        {
+            perror("kill");
+            exit(EXIT_FAILURE);
+        }
+        printf("[%d] (%d) ", jobs[fg_pid].jid, jobs[fg_pid].pid);
+        if (jobs[fg_pid].state == BG)
+            printf("Running ");
+        printf("%s\n", jobs[fg_pid].cmdline);
+    }
     return;
 }
 
@@ -565,7 +583,7 @@ void listjobs(struct job_t *jobs)
 		    printf("listjobs: Internal error: job[%d].state=%d ", 
 			   i, jobs[i].state);
 	    }
-	    printf("%s", jobs[i].cmdline);
+	    printf("%s\n", jobs[i].cmdline);
 	}
     }
 }
