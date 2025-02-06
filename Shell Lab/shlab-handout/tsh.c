@@ -272,7 +272,6 @@ void eval(char *cmdline)
             n = 0;
         }
     }
-    waitpid(-1, NULL, 0);
     for (int i = 0; i < command_line_num; ++i)
     {
         for (int j = 0; cmd_meta[i][j] != NULL; ++j)
@@ -393,9 +392,27 @@ void waitfg(pid_t pid)
  *     received a SIGSTOP or SIGTSTP signal. The handler reaps all
  *     available zombie children, but doesn't wait for any other
  *     currently running children to terminate.  
+ * 当子进程终止或停止时，内核会自动向父进程（shell）发送 SIGCHLD
  */
 void sigchld_handler(int sig) 
 {
+    pid_t pid;
+    int status;
+    // printf("sigchld_handlersigchld_handlersigchld_handlersigchld_handlersigchld_handler\n");
+    // while 循环 waitpid() 直到 waitpid() 返回 0 或 -1（表示没有更多退出的子进程）能确保所有已退出的子进程都被回收。
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0)
+    {
+        if (WIFEXITED(status)) 
+        {  
+            // 子进程正常退出
+            deletejob(jobs, pid);
+        } 
+        else if (WIFSIGNALED(status)) 
+        {  
+            // 子进程被信号终止（如 Ctrl+C）
+            deletejob(jobs, pid);
+        }
+    }
     return;
 }
 
