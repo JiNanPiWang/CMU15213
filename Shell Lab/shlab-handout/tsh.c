@@ -187,13 +187,8 @@ void eval(char *cmdline)
         {
             // 去除最后一个换行符
             cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\0';
-            // 最后一个指令是空指令
-            cmds = realloc(cmds, sizeof(char*) * (n + 1));
-            cmds[n] = NULL; 
 
-            // 处理这一行的所有指令
             cmd_meta[command_line_num] = cmds;
-            int is_bg = strcmp(cmds[n - 1], "&") != 0;
             if (strcmp(cmds[0], "quit") == 0 || 
                 strcmp(cmds[0], "fg") == 0 ||
                 strcmp(cmds[0], "bg") == 0 ||
@@ -204,6 +199,21 @@ void eval(char *cmdline)
             }
             else
             {
+                int is_bg = 0;  // 是否是后台任务
+                if (strcmp(cmds[n - 1], "&") == 0)
+                {
+                    is_bg = 1;
+                    // 如果是后台任务，去掉最后一个&，换成NULL
+                    cmds[n - 1] = NULL;
+                }
+                else
+                {
+                    // 如果是前台任务，最后加上一个NULL
+                    cmds = realloc(cmds, sizeof(char*) * (n + 1));
+                    cmds[n] = NULL; 
+                }
+                cmd_meta[command_line_num] = cmds;
+                
                 pid_t pid = fork();
                 if (pid == -1) 
                 {
@@ -232,10 +242,14 @@ void eval(char *cmdline)
                     else
                     {
                         // 后台任务，添加到任务列表
-                        
+                        printf("[%d] (%d) ", nextjid, pid);
+                        for (int i = 0; cmd_meta[command_line_num][i] != NULL; ++i)
+                        {
+                            printf("%s ", cmd_meta[command_line_num][i]);
+                        }
+                        printf("&\n");
                     }
                 }
-                break;
             }
             command_line_num++;
             cmds = NULL;
