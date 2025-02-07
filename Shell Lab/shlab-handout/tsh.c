@@ -261,23 +261,24 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    int idx = 0;
-    if (strcmp(argv[idx], "quit") == 0)
+    if (strcmp(argv[0], "quit") == 0)
     {
         exit(0);
     }
-    else if (strcmp(argv[idx], "jobs") == 0)
+    else if (strcmp(argv[0], "jobs") == 0)
     {
         listjobs(jobs);
         return 1;
     }
-    else if (strcmp(argv[idx], "bg") == 0)
+    else if (strcmp(argv[0], "bg") == 0)
     {
-        
+        do_bgfg(argv);
+        return 1;
     }
-    else if (strcmp(argv[idx], "fg") == 0)
+    else if (strcmp(argv[0], "fg") == 0)
     {
-        
+        do_bgfg(argv);
+        return 1;
     }
     return 0;     /* not a builtin command */
 }
@@ -287,7 +288,31 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    
+    if (argv[1][0] != '%') 
+    {
+        fprintf(stderr, "Error: Argument must start with '%%'.\n");
+    }
+
+    int jid = atoi(argv[1] + 1);
+    struct job_t* job = getjobjid(jobs, jid);
+    if (strcmp(argv[0], "bg") == 0)
+    {
+        if (job->state == ST)
+        {
+            job->state = BG;
+            kill(-job->pid, SIGCONT);
+            printf("[%d] (%d) %s", jid, job->pid, job->cmdline);
+        }
+    }
+    else if (strcmp(argv[0], "fg") == 0)
+    {
+        if (job->state == ST || job->state == BG)
+        {
+            job->state = FG;
+            kill(-job->pid, SIGCONT);
+            waitfg(job->pid);
+        }
+    }
 }
 
 /* 
