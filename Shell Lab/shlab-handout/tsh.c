@@ -170,14 +170,11 @@ void eval(char* cmdline)
     int bg;              /* Should the job run in bg or fg? */
     pid_t pid;           /* Process id */
 
-    
-
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
     
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
-
     if (!builtin_cmd(argv)) 
     {
         pid = fork();
@@ -391,6 +388,7 @@ void sigchld_handler(int sig)
         else if (WIFSIGNALED(status)) 
         {  
             // 子进程被信号终止（如 Ctrl+C）
+            printf("Job [%d] (%d) terminated by signal 2\n", pid2jid(pid), pid);
             deletejob(jobs, pid);
         }
         else if (WIFSTOPPED(status)) 
@@ -398,6 +396,7 @@ void sigchld_handler(int sig)
             // 子进程被暂停（如 Ctrl+Z）
             struct job_t* stopped_job = getjobpid(jobs, pid);
             stopped_job->state = ST;
+            printf("Job [%d] (%d) stopped by signal 20\n", pid2jid(pid), pid);
         }
     }
     return;
@@ -418,7 +417,6 @@ void sigint_handler(int sig)
             perror("kill");
             exit(EXIT_FAILURE);
         }
-        printf("Job [%d] (%d) terminated by signal 2\n", pid2jid(fg_pid), fg_pid);
         fflush(stdout);
     }
     return;
@@ -439,7 +437,6 @@ void sigtstp_handler(int sig)
             perror("kill");
             exit(EXIT_FAILURE);
         }
-        printf("Job [%d] (%d) stopped by signal 20\n", pid2jid(fg_pid), fg_pid);
         fflush(stdout);
     }
     return;
