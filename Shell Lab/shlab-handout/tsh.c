@@ -245,26 +245,27 @@ void eval(char *cmdline)
                 else
                 {
                     // 父进程不立即释放资源，子进程释放
+                    for (int i = 0; cmd_meta[command_line_num][i] != NULL; ++i)
+                    {
+                        strcat(sbuf, cmd_meta[command_line_num][i]);
+                        strcat(sbuf, " ");
+                    }
                     if (!is_bg)
                     {
                         // 如果是前台任务，等待子进程结束
                         // 如果是后台任务，不等待，立即返回
-                        waitpid(pid, NULL, 0);  // 等待子进程退出
+                        addjob(jobs, pid, FG, sbuf);
+                        waitfg(pid);
                     }
                     else
                     {
                         // 后台任务，添加到任务列表
                         printf("[%d] (%d) ", nextjid, pid);
-                        for (int i = 0; cmd_meta[command_line_num][i] != NULL; ++i)
-                        {
-                            strcat(sbuf, cmd_meta[command_line_num][i]);
-                            strcat(sbuf, " ");
-                        }
                         strcat(sbuf, "&");
                         printf("%s\n", sbuf);
                         addjob(jobs, pid, BG, sbuf);
-                        sbuf[0] = '\0';
                     }
+                    sbuf[0] = '\0';
                 }
             }
             command_line_num++;
@@ -379,6 +380,11 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    // 如果前台进程组的 PID 等于 pid，说明前台进程还在运行
+    while (fgpid(jobs) == pid)
+    {
+        sleep(1);
+    }
     return;
 }
 
@@ -398,7 +404,7 @@ void sigchld_handler(int sig)
 {
     pid_t pid;
     int status;
-    // printf("sigchld_handlersigchld_handlersigchld_handlersigchld_handlersigchld_handler\n");
+    printf("sigchld_handler\n");
     // while 循环 waitpid() 直到 waitpid() 返回 0 或 -1（表示没有更多退出的子进程）能确保所有已退出的子进程都被回收。
     while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0)
     {
@@ -424,18 +430,14 @@ void sigchld_handler(int sig)
 void sigint_handler(int sig) 
 {
     pid_t fg_pid = fgpid(jobs);  // 获取前台进程组的 PID
-    printf("fg_pid: %d\n", fg_pid);
     if (fg_pid != 0)
     {
-        if (kill(-fg_pid, sig) == -1) 
+        if (kill(-fg_pid, SIGINT) == -1) 
         {
             perror("kill");
             exit(EXIT_FAILURE);
         }
-        printf("[%d] (%d) ", jobs[fg_pid].jid, jobs[fg_pid].pid);
-        if (jobs[fg_pid].state == BG)
-            printf("Running ");
-        printf("%s\n", jobs[fg_pid].cmdline);
+        printf("Job [%d] (%d) terminated by signal 2\n", pid2jid(fg_pid), fg_pid);
     }
     return;
 }
