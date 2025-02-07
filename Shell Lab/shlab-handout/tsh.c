@@ -161,136 +161,43 @@ int main(int argc, char **argv)
  * each child process must have a unique process group ID so that our
  * background children don't receive SIGINT (SIGTSTP) from the kernel
  * when we type ctrl-c (ctrl-z) at the keyboard.  
- * 一次读一行，判断标准是cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\n'
- * 一次也是处理一行
+ * 复制的zhangyi1357/CSAPP-Labs
 */
-void eval(char *cmdline) 
+void eval(char* cmdline)
 {
-    int n = 0;
-    int command_line_num = 0;
-    // cmd_meta存入所有行的指令，防止销毁后找不到
-    char ***cmd_meta = malloc(sizeof(char**) * MAXJID);
-    char **cmds = NULL;
+    char* argv[MAXARGS]; /* Argument list execve() */
+    char buf[MAXLINE];   /* Holds modified command line */
+    int bg;              /* Should the job run in bg or fg? */
+    pid_t pid;           /* Process id */
 
-    // 第一次调用strtok，传入要分割的字符串和分隔符
-    char *token = strtok(cmdline, " ");
-    while (token != NULL)
+    
+
+    strcpy(buf, cmdline);
+    bg = parseline(buf, argv);
+    
+    if (argv[0] == NULL)
+        return;   /* Ignore empty lines */
+
+    if (!builtin_cmd(argv)) 
     {
-        if (strcmp(token, "\n") == 0)
-        {
-            // 把多的这一个换行加到上一个命令的最后
-            // 这个是特判trace06，因为有一个命令后面有一个空格
-            cmds[n - 1] = realloc(cmds[n - 1], strlen(cmds[n - 1]) + 1);
-            strcat(cmds[n - 1], "\n");
-        }
-        else
+        pid = fork();
+        if (pid == 0) 
         {   
-            // 分配内存，复制字符串
-            cmds = realloc(cmds, sizeof(char*) * (n + 1));
-            cmds[n] = malloc(strlen(token) + 1);
-            strcpy(cmds[n], token);
-            ++n;
-            token = strtok(NULL, " ");
+            /* Child runs user job */
+            setpgid(0, 0);
+            execve(argv[0], argv, environ);
         }
 
-        // 一次读一行
-        if (cmds[n - 1][strlen(cmds[n - 1]) - 1] == '\n')
-        {
-            // 去除最后一个换行符
-            cmds[n - 1][strlen(cmds[n - 1]) - 1] = '\0';
+        addjob(jobs, pid, bg ? BG : FG, cmdline);
 
-            cmd_meta[command_line_num] = cmds;
-            if (strcmp(cmds[0], "quit") == 0 || 
-                strcmp(cmds[0], "fg") == 0 ||
-                strcmp(cmds[0], "bg") == 0 ||
-                strcmp(cmds[0], "jobs") == 0)
-            {
-                // builtin_cmd在当前进程执行，否则新建子进程执行
-                builtin_cmd(cmds);
-            }
-            else
-            {
-                int is_bg = 0;  // 是否是后台任务
-                if (strcmp(cmds[n - 1], "&") == 0)
-                {
-                    is_bg = 1;
-                    // 如果是后台任务，去掉最后一个&，换成NULL
-                    cmds[n - 1] = NULL;
-                }
-                else
-                {
-                    // 如果是前台任务，最后加上一个NULL
-                    cmds = realloc(cmds, sizeof(char*) * (n + 1));
-                    cmds[n] = NULL; 
-                }
-
-                cmd_meta[command_line_num] = cmds;
-                
-                pid_t pid = fork();
-                
-                // 不使用setpgid：子进程继承了父进程的进程组，进程组 ID 不等于子进程的 PID。
-                // fgpid(jobs) 返回子进程的 PID（例如 38090），
-                // 但是 kill(-38090, SIGINT) 试图发送信号到一个以 38090 为组 ID 的进程组，
-                // 而实际上这个进程组不存在，从而报错。
-                setpgid(0, 0);
-
-                if (pid == -1) 
-                {
-                    // 如果 fork 失败
-                    perror("fork failed");
-                    exit(1);
-                }
-                if (pid == 0) 
-                {
-                    // 子进程：执行命令，使用 shell 执行命令
-                    // 第一个参数是 shell 程序，第二个参数是参数数组
-                    execvp(cmd_meta[command_line_num][0], cmd_meta[command_line_num]);
-                    // 如果 execvp 返回，表示出错
-                    perror("execvp failed");
-                    exit(1);
-                }
-                else
-                {
-                    // 父进程不立即释放资源，子进程释放
-                    for (int i = 0; cmd_meta[command_line_num][i] != NULL; ++i)
-                    {
-                        strcat(sbuf, cmd_meta[command_line_num][i]);
-                        strcat(sbuf, " ");
-                    }
-                    if (!is_bg)
-                    {
-                        // 如果是前台任务，等待子进程结束
-                        // 如果是后台任务，不等待，立即返回
-                        addjob(jobs, pid, FG, sbuf);
-                        waitfg(pid);
-                    }
-                    else
-                    {
-                        // 后台任务，添加到任务列表
-                        printf("[%d] (%d) ", nextjid, pid);
-                        strcat(sbuf, "&");
-                        printf("%s\n", sbuf);
-                        addjob(jobs, pid, BG, sbuf);
-                    }
-                    sbuf[0] = '\0';
-                }
-            }
-            command_line_num++;
-            cmds = NULL;
-            n = 0;
-        }
-    }
-    for (int i = 0; i < command_line_num; ++i)
-    {
-        for (int j = 0; cmd_meta[i][j] != NULL; ++j)
-        {
-            free(cmd_meta[i][j]);
-        }
-        free(cmd_meta[i]);
+        /* Parent waits for foreground job to terminate */
+        if (!bg)  // foreground
+            waitfg(pid);
+        else      // background
+            printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
     }
     return;
 }
-
 /* 
  * parseline - Parse the command line and build the argv array.
  * 
@@ -362,6 +269,7 @@ int builtin_cmd(char **argv)
     else if (strcmp(argv[idx], "jobs") == 0)
     {
         listjobs(jobs);
+        return 1;
     }
     else if (strcmp(argv[idx], "bg") == 0)
     {
@@ -609,7 +517,7 @@ void listjobs(struct job_t *jobs)
 		    printf("listjobs: Internal error: job[%d].state=%d ", 
 			   i, jobs[i].state);
 	    }
-	    printf("%s\n", jobs[i].cmdline);
+	    printf("%s", jobs[i].cmdline);
 	}
     }
 }
