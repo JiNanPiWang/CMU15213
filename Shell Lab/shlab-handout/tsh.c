@@ -332,6 +332,12 @@ void sigchld_handler(int sig)
             // 子进程被信号终止（如 Ctrl+C）
             deletejob(jobs, pid);
         }
+        else if (WIFSTOPPED(status)) 
+        {
+            // 子进程被暂停（如 Ctrl+Z）
+            struct job_t* stopped_job = getjobpid(jobs, pid);
+            stopped_job->state = ST;
+        }
     }
     return;
 }
@@ -364,6 +370,17 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    pid_t fg_pid = fgpid(jobs);  // 获取前台进程组的 PID
+    if (fg_pid != 0)
+    {
+        if (kill(-fg_pid, sig) == -1) 
+        {
+            perror("kill");
+            exit(EXIT_FAILURE);
+        }
+        printf("Job [%d] (%d) stopped by signal 20\n", pid2jid(fg_pid), fg_pid);
+        fflush(stdout);
+    }
     return;
 }
 
