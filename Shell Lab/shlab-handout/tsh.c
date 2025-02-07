@@ -227,6 +227,13 @@ void eval(char *cmdline)
                 cmd_meta[command_line_num] = cmds;
                 
                 pid_t pid = fork();
+                
+                // 不使用setpgid：子进程继承了父进程的进程组，进程组 ID 不等于子进程的 PID。
+                // fgpid(jobs) 返回子进程的 PID（例如 38090），
+                // 但是 kill(-38090, SIGINT) 试图发送信号到一个以 38090 为组 ID 的进程组，
+                // 而实际上这个进程组不存在，从而报错。
+                setpgid(0, 0);
+
                 if (pid == -1) 
                 {
                     // 如果 fork 失败
@@ -404,7 +411,6 @@ void sigchld_handler(int sig)
 {
     pid_t pid;
     int status;
-    printf("sigchld_handler\n");
     // while 循环 waitpid() 直到 waitpid() 返回 0 或 -1（表示没有更多退出的子进程）能确保所有已退出的子进程都被回收。
     while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0)
     {
@@ -432,12 +438,13 @@ void sigint_handler(int sig)
     pid_t fg_pid = fgpid(jobs);  // 获取前台进程组的 PID
     if (fg_pid != 0)
     {
-        if (kill(-fg_pid, SIGINT) == -1) 
+        if (kill(-fg_pid, sig) == -1) 
         {
             perror("kill");
             exit(EXIT_FAILURE);
         }
         printf("Job [%d] (%d) terminated by signal 2\n", pid2jid(fg_pid), fg_pid);
+        fflush(stdout);
     }
     return;
 }
