@@ -185,7 +185,11 @@ void eval(char* cmdline)
         {   
             /* Child runs user job */
             setpgid(0, 0);
-            execve(argv[0], argv, environ);
+            if (execve(argv[0], argv, environ) == -1)
+            {
+                printf("%s: Command not found\n", argv[0]);
+                exit(0);
+            }
         }
 
         addjob(jobs, pid, bg ? BG : FG, cmdline);
@@ -288,20 +292,52 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    if (argv[1][0] != '%') 
+    // 如果没有第二个参数，就输出
+    if (argv[1] == NULL)
     {
-        fprintf(stderr, "Error: Argument must start with '%%'.\n");
+        printf("%s command requires PID or %%jobid argument\n", argv[0]);
+        return;
+    }
+    else if (argv[1][0] != '%' && !isdigit(argv[1][0])) 
+    {
+        printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+        return;
     }
 
-    int jid = atoi(argv[1] + 1);
-    struct job_t* job = getjobjid(jobs, jid);
+    pid_t jid = -1, pid = -1;
+    struct job_t* job = NULL;
+    if (argv[1][0] == '%')
+    {
+        // 如果第二个参数以 % 开头，说明是 jid
+        jid = atoi(argv[1] + 1);
+        job = getjobjid(jobs, jid);
+        if (job == NULL)
+        {
+            printf("%s: No such job\n", argv[1]);
+            return;
+        }
+        pid = job->pid;
+    }
+    else
+    {
+        // 如果第二个参数是数字，说明是 pid
+        pid_t pid = atoi(argv[1]);
+        job = getjobpid(jobs, pid);
+        if (job == NULL)
+        {
+            printf("(%d): No such process\n", pid);
+            return;
+        }
+        jid = jobs->jid;
+    }
+
     if (strcmp(argv[0], "bg") == 0)
     {
         if (job->state == ST)
         {
             job->state = BG;
-            kill(-job->pid, SIGCONT);
-            printf("[%d] (%d) %s", jid, job->pid, job->cmdline);
+            kill(-pid, SIGCONT);
+            printf("[%d] (%d) %s", jid, pid, job->cmdline);
         }
     }
     else if (strcmp(argv[0], "fg") == 0)
@@ -309,8 +345,8 @@ void do_bgfg(char **argv)
         if (job->state == ST || job->state == BG)
         {
             job->state = FG;
-            kill(-job->pid, SIGCONT);
-            waitfg(job->pid);
+            kill(-pid, SIGCONT);
+            waitfg(pid);
         }
     }
 }
