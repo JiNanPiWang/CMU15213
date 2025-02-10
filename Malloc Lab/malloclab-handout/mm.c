@@ -55,7 +55,7 @@ team_t team = {
 
 // 获取头部信息指针里面的前29位，也就是整个malloc数据块的大小
 #define GET_SIZE(p)		(GET(p) & ~0x7)
-// 这个数据块是否被使用
+// 这个数据块是否被使用，根据头部信息指针判断
 #define GET_ALLOC(p)	(GET(p) & 0x1)
 
 // (HDRP=header_pointer)header的地址由数据块的地址减去4
@@ -67,6 +67,47 @@ team_t team = {
 #define PREV_BLKP(bp)	((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 static char* heap_listp;
+
+static void free_single_block(void *ptr)
+{
+
+}
+
+static void* coalesce(void* bp)
+{
+    // 如果前一个数据块是空的或者下一个数据块是空的，就需要合并
+    // 返回合并后的第一个数据块的地址
+	char* prev_head = HDRP(PREV_BLKP(bp));
+	char* next_foot = FTRP(NEXT_BLKP(bp));
+    int allocated_prev = GET_ALLOC(prev_head);
+    int allocated_next = GET_ALLOC(next_foot);
+	
+    if (allocated_prev && allocated_next)
+    {
+        return bp;
+    }
+    else if (!allocated_prev && allocated_next)
+    {
+        int new_size = GET_SIZE(HDRP(bp)) + GET_SIZE(prev_head);
+    	PUT(prev_head, PACK(new_size, 0));
+    	PUT(FTRP(bp), PACK(new_size, 0));
+        return PREV_BLKP(bp);
+    }
+    else if (allocated_prev && !allocated_next)
+    {
+        int new_size = GET_SIZE(HDRP(bp)) + GET_SIZE(next_foot);
+    	PUT(next_foot, PACK(new_size, 0));
+    	PUT(HDRP(bp), PACK(new_size, 0));
+        return bp;
+    }
+    else
+    {
+        int new_size = GET_SIZE(prev_head) + GET_SIZE(HDRP(bp)) + GET_SIZE(next_foot);
+    	PUT(prev_head, PACK(new_size, 0));
+    	PUT(next_foot, PACK(new_size, 0));
+        return PREV_BLKP(bp);
+    }
+}
 
 /* 
  * mm_init - initialize the malloc package.
@@ -111,6 +152,19 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
+    if (ptr == NULL)
+    {
+        return;
+    }
+    if (heap_listp == NULL)
+    {
+        mm_init();
+    }
+
+    PUT(HDRP(ptr), PACK(GET_SIZE(HDRP(ptr)), 0));
+    PUT(FTRP(ptr), PACK(GET_SIZE(HDRP(ptr)), 0));
+
+    coalesce(ptr);
 }
 
 /*
