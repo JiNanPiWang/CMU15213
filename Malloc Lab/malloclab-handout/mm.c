@@ -44,11 +44,12 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-// PACK作用是将size和alloc合并成一个整数，size占低29位，alloc占高3位
+// PACK作用是将size和alloc合并成一个整数，size占高29位，alloc占低3位
 #define PACK(size, alloc)   ((size) | (alloc))
 
-#define WSIZE			4 /* Word and header/footer size (bytes) */
-#define DSIZE			8 /* Double word size (bytes) */
+#define WSIZE			4			/* Word and header/footer size (bytes) */
+#define DSIZE			8			/* Double word size (bytes) */
+#define CHUNKSIZE		(1<<12)		/* Extend heap by this amount (bytes) */
 
 #define GET(p)			(*(unsigned int *)(p))
 #define PUT(p, val)		(*(unsigned int *)(p) = val)
@@ -66,12 +67,7 @@ team_t team = {
 #define NEXT_BLKP(bp)	((char *)(bp) + GET_SIZE(HDRP(bp)))
 #define PREV_BLKP(bp)	((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-static char* heap_listp;
-
-static void free_single_block(void *ptr)
-{
-
-}
+static char* heap_listp = NULL;
 
 static void* coalesce(void* bp)
 {
@@ -109,12 +105,36 @@ static void* coalesce(void* bp)
     }
 }
 
+static void *extend_heap(int words)
+{
+	char* bp = NULL;
+	int alloca_size = words * WSIZE;
+	// 需要保证分配的内存是8的倍数
+	if (words % 2 == 1)
+		alloca_size += WSIZE;
+	
+	if ((bp = mem_sbrk(2 * alloca_size)) == (void *)-1)
+    {
+        return NULL;
+    }
+	// bp前面有上一个堆结尾，所以可以直接用HDRP(bp)和FTRP(bp)来设置新的头部和尾部
+	// 这里直接传入alloca_size，不用加其他运算，因为最小的单位是8，有点绕，可以仔细想一下
+	PUT(HDRP(bp), PACK(alloca_size, 0));
+	PUT(FTRP(bp), PACK(alloca_size, 0));
+	// 新的堆结尾
+	PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+
+	/* Coalesce if the previous block was free */
+	return coalesce(bp);
+}
+
 /* 
  * mm_init - initialize the malloc package.
  */
 int mm_init(void)
 {
     // 创建一个初始的空堆，包括一个空的头部和一个空的尾部
+	// 使用 mem_sbrk 扩展堆，将内存空间增加 size 字节，返回分配的内存的起始地址
     if ((heap_listp = mem_sbrk(2 * WSIZE)) == (void *)-1)
     {
         return -1;
@@ -128,6 +148,8 @@ int mm_init(void)
 
     heap_listp += 2 * WSIZE;
 
+	if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+		return -1;
     return 0;
 }
 
@@ -137,14 +159,59 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
-	return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
-    }
+	if (size == 0)
+	{
+		return NULL;
+	}
+	if (heap_listp == NULL)
+	{
+		mm_init();
+	}
+
+	// curp是当前遍历的数据块的地址
+	char* curp = heap_listp + 2 * WSIZE;
+	int alloca_size = ALIGN(size);
+	while (GET(HDRP(curp)) != 1)
+	{
+		if (!GET_ALLOC(HDRP(curp)) && GET_SIZE(HDRP(curp)) >= alloca_size)
+			break;
+		curp = NEXT_BLKP(curp);
+	}
+	
+	// 找到了空闲块
+	if (GET(HDRP(curp)) != 1)
+	{
+		// 如果空闲块大小大于需要的大小加上头部尾部的大小，就需要分割
+		if (GET_SIZE(HDRP(curp)) >= alloca_size + 2 * WSIZE)
+		{
+			// 分割后的下一个空闲块的大小
+			int next_size = GET_SIZE(HDRP(curp)) - 2 * WSIZE;
+
+			// 先改变当前头部的alloc标记和size
+			PUT(HDRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
+			// 这时候当前尾部的地址已经改变了，直接改变尾部的alloc标记即可
+			PUT(FTRP(curp), PACK(alloca_size, 1));
+
+			// 然后再新建下一个的头部
+			char* nextp = NEXT_BLKP(curp);
+			PUT(HDRP(nextp), PACK(next_size, 0));
+			// 因为尾部的地址是用头部的地址加上size得到的，所以这里直接改变尾部的alloc标记即可
+			PUT(FTRP(nextp), PACK(next_size, 0));
+		}
+		else
+		{
+			// 如果空闲块大小和需要的大小一样或者大一点点，就不需要再分割了，直接改变尾部的alloc标记
+			PUT(HDRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
+			PUT(FTRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
+		}
+		return curp;
+	}
+	else // 没有找到空闲块，需要扩展堆
+	{
+		if ((curp = extend_heap(size / WSIZE)) == NULL)
+			return -1;
+		return HDRP(curp);
+	}
 }
 
 /*
