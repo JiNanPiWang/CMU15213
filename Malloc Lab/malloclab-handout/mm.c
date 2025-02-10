@@ -44,11 +44,49 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+// PACK作用是将size和alloc合并成一个整数，size占低29位，alloc占高3位
+#define PACK(size, alloc)   ((size) | (alloc))
+
+#define WSIZE			4 /* Word and header/footer size (bytes) */
+#define DSIZE			8 /* Double word size (bytes) */
+
+#define GET(p)			(*(unsigned int *)(p))
+#define PUT(p, val)		(*(unsigned int *)(p) = val)
+
+// 获取头部信息指针里面的前29位，也就是整个malloc数据块的大小
+#define GET_SIZE(p)		(GET(p) & ~0x7)
+// 这个数据块是否被使用
+#define GET_ALLOC(p)	(GET(p) & 0x1)
+
+// (HDRP=header_pointer)header的地址由数据块的地址减去4
+#define HDRP(bp)		((char *)(bp) - WSIZE)
+// footer的地址由数据块的地址加上数据块的大小（包括header和footer还有有效载荷）减去8
+#define FTRP(bp)		((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+
+#define NEXT_BLKP(bp)	((char *)(bp) + GET_SIZE(HDRP(bp)))
+#define PREV_BLKP(bp)	((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
+
+static char* heap_listp;
+
 /* 
  * mm_init - initialize the malloc package.
  */
 int mm_init(void)
 {
+    // 创建一个初始的空堆，包括一个空的头部和一个空的尾部
+    if ((heap_listp = mem_sbrk(2 * WSIZE)) == (void *)-1)
+    {
+        return -1;
+    }
+    // 堆的第一个字需要是0
+    PUT(heap_listp, 0);
+    PUT(heap_listp + WSIZE, PACK(8, 0));
+    PUT(heap_listp + 2 * WSIZE, PACK(8, 0));
+    // 堆的结尾需要是1，这个标记的作用是防止内存分配器在遍历堆时越界
+    PUT(heap_listp + 3 * WSIZE, PACK(0, 1));
+
+    heap_listp += 2 * WSIZE;
+
     return 0;
 }
 
@@ -94,17 +132,3 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(oldptr);
     return newptr;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
