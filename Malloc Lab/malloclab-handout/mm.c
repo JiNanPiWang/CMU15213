@@ -256,11 +256,28 @@ void *mm_malloc(size_t size)
 	}
 	else // 没有找到空闲块，需要扩展堆
 	{
-		// 扩展的大小至少是CHUNKSIZE
-		alloca_size = alloca_size > CHUNKSIZE ? alloca_size : CHUNKSIZE;
-		if ((curp = extend_heap(alloca_size / WSIZE)) == NULL)
+		// 扩展的大小至少是 CHUNKSIZE
+		int kuozhan = alloca_size > CHUNKSIZE ? alloca_size : CHUNKSIZE;
+		if ((curp = extend_heap(kuozhan / WSIZE)) == NULL)
 			return NULL;
-		return mm_malloc(size);
+		// 不再递归调用 mm_malloc，而是直接分配 curp 内存块
+		// 判断是否需要分割新扩展的空闲块
+		if (GET_SIZE(HDRP(curp)) >= alloca_size + 2 * WSIZE) 
+		{
+			int next_size = GET_SIZE(HDRP(curp)) - alloca_size;
+			PUT(HDRP(curp), PACK(alloca_size, 1));
+			PUT(FTRP(curp), PACK(alloca_size, 1));
+			
+			char* nextp = NEXT_BLKP(curp);
+			PUT(HDRP(nextp), PACK(next_size, 0));
+			PUT(FTRP(nextp), PACK(next_size, 0));
+		} 
+		else 
+		{
+			PUT(HDRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
+			PUT(FTRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
+		}
+		return curp;
 	}
 }
 
