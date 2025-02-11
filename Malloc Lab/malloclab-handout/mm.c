@@ -54,7 +54,7 @@ team_t team = {
 #define GET(p)			(*(unsigned int *)(p))
 #define PUT(p, val)		(*(unsigned int *)(p) = val)
 
-// 获取头部信息指针里面的前29位，也就是整个malloc数据块的大小
+// 获取头部信息指针里面的前29位，也就是整个malloc数据块的大小，包括头部和尾部还有有效载荷
 #define GET_SIZE(p)		(GET(p) & ~0x7)
 // 这个数据块是否被使用，根据头部信息指针判断
 #define GET_ALLOC(p)	(GET(p) & 0x1)
@@ -75,10 +75,15 @@ static void* coalesce(void* bp)
     // 返回合并后的第一个数据块的地址
 	char* prev_head = HDRP(PREV_BLKP(bp));
 	char* next_foot = FTRP(NEXT_BLKP(bp));
+	char* next_head = HDRP(NEXT_BLKP(bp));
     int allocated_prev = GET_ALLOC(prev_head);
-    int allocated_next = GET_ALLOC(next_foot);
+	// 需要用next_head，因为如果这是最后一个块，next_foot就不对了
+    int allocated_next = GET_ALLOC(next_head);
 	
-    if (allocated_prev && allocated_next)
+	printf("coalesce: bp: %p, prev_head: %p, next_foot: %p, allocated_prev: %d, allocated_next: %d\n", 
+			bp, prev_head, next_foot, allocated_prev, allocated_next);
+    
+	if (allocated_prev && allocated_next)
     {
         return bp;
     }
@@ -105,6 +110,19 @@ static void* coalesce(void* bp)
     }
 }
 
+static void print_all()
+{
+	char* curp = heap_listp;
+	printf("\n");
+	while (GET_SIZE(HDRP(curp)) != 0)
+	{
+		printf("PRINTALL: curp: %p, size: %d, alloc: %d\n", curp, GET_SIZE(HDRP(curp)), GET_ALLOC(HDRP(curp)));
+		curp = NEXT_BLKP(curp);
+	}
+	printf("\n");
+}
+
+// words应该包括头部和尾部
 static void *extend_heap(int words)
 {
 	char* bp = NULL;
@@ -113,16 +131,20 @@ static void *extend_heap(int words)
 	if (words % 2 == 1)
 		alloca_size += WSIZE;
 	
-	if ((bp = mem_sbrk(2 * alloca_size)) == (void *)-1)
-    {
-        return NULL;
-    }
+	if ((bp = mem_sbrk(alloca_size)) == (void *)-1)
+	{
+		return NULL;
+	}
+	printf("\nextend_heap: %d\n", alloca_size);
+
 	// bp前面有上一个堆结尾，所以可以直接用HDRP(bp)和FTRP(bp)来设置新的头部和尾部
 	// 这里直接传入alloca_size，不用加其他运算，因为最小的单位是8，有点绕，可以仔细想一下
 	PUT(HDRP(bp), PACK(alloca_size, 0));
 	PUT(FTRP(bp), PACK(alloca_size, 0));
 	// 新的堆结尾
 	PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+
+	print_all();
 
 	/* Coalesce if the previous block was free */
 	return coalesce(bp);
@@ -135,7 +157,7 @@ int mm_init(void)
 {
     // 创建一个初始的空堆，包括一个空的头部和一个空的尾部
 	// 使用 mem_sbrk 扩展堆，将内存空间增加 size 字节，返回分配的内存的起始地址
-    if ((heap_listp = mem_sbrk(2 * WSIZE)) == (void *)-1)
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
     {
         return -1;
     }
@@ -159,6 +181,7 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
+	printf("\nmm_malloc: %d\n", size);
 	if (size == 0)
 	{
 		return NULL;
@@ -169,26 +192,31 @@ void *mm_malloc(size_t size)
 	}
 
 	// curp是当前遍历的数据块的地址
-	char* curp = heap_listp + 2 * WSIZE;
-	int alloca_size = ALIGN(size);
+	char* curp = heap_listp;
+	int alloca_size = ALIGN(size) + DSIZE;
+
+	print_all();
+
+	// printf("\nalloca_size: %d\n", alloca_size);
 	while (GET(HDRP(curp)) != 1)
 	{
+		// printf("curp: %p, size: %d, alloc: %d\n", curp, GET_SIZE(HDRP(curp)), GET_ALLOC(HDRP(curp)));
 		if (!GET_ALLOC(HDRP(curp)) && GET_SIZE(HDRP(curp)) >= alloca_size)
 			break;
 		curp = NEXT_BLKP(curp);
 	}
-	
+
 	// 找到了空闲块
 	if (GET(HDRP(curp)) != 1)
 	{
-		// 如果空闲块大小大于需要的大小加上头部尾部的大小，就需要分割
+		// 如果空闲块大小大于需要的大小加上多出的头部尾部的大小，就需要分割
 		if (GET_SIZE(HDRP(curp)) >= alloca_size + 2 * WSIZE)
 		{
 			// 分割后的下一个空闲块的大小
-			int next_size = GET_SIZE(HDRP(curp)) - 2 * WSIZE;
+			int next_size = GET_SIZE(HDRP(curp)) - alloca_size;
 
 			// 先改变当前头部的alloc标记和size
-			PUT(HDRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
+			PUT(HDRP(curp), PACK(alloca_size, 1));
 			// 这时候当前尾部的地址已经改变了，直接改变尾部的alloc标记即可
 			PUT(FTRP(curp), PACK(alloca_size, 1));
 
@@ -208,9 +236,11 @@ void *mm_malloc(size_t size)
 	}
 	else // 没有找到空闲块，需要扩展堆
 	{
-		if ((curp = extend_heap(size / WSIZE)) == NULL)
-			return -1;
-		return HDRP(curp);
+		if ((curp = extend_heap(alloca_size / WSIZE)) == NULL)
+			return NULL;
+		PUT(HDRP(curp), PACK(alloca_size, 1));
+		PUT(FTRP(curp), PACK(alloca_size, 1));
+		return curp;
 	}
 }
 
@@ -219,6 +249,7 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
+	printf("\nmm_free: %p\n", ptr);
     if (ptr == NULL)
     {
         return;
@@ -232,6 +263,8 @@ void mm_free(void *ptr)
     PUT(FTRP(ptr), PACK(GET_SIZE(HDRP(ptr)), 0));
 
     coalesce(ptr);
+
+	print_all();
 }
 
 /*
