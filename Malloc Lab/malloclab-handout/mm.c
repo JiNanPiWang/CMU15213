@@ -69,6 +69,8 @@ team_t team = {
 
 static char* heap_listp = NULL;
 
+// #define DEBUG
+
 static void* coalesce(void* bp)
 {
     // 如果前一个数据块是空的或者下一个数据块是空的，就需要合并
@@ -77,12 +79,18 @@ static void* coalesce(void* bp)
 	char* next_foot = FTRP(NEXT_BLKP(bp));
 	char* next_head = HDRP(NEXT_BLKP(bp));
     int allocated_prev = GET_ALLOC(prev_head);
+
+	// 如果这是第一个块，prev_head就是heap_listp，这时候prev_head是不对的
+	if (bp == heap_listp)
+		allocated_prev = 1;
 	// 需要用next_head，因为如果这是最后一个块，next_foot就不对了
     int allocated_next = GET_ALLOC(next_head);
 	
+#ifdef DEBUG
 	printf("coalesce: bp: %p, prev_head: %p, next_foot: %p, allocated_prev: %d, allocated_next: %d\n", 
 			bp, prev_head, next_foot, allocated_prev, allocated_next);
-    
+#endif
+
 	if (allocated_prev && allocated_next)
     {
         return bp;
@@ -135,7 +143,10 @@ static void *extend_heap(int words)
 	{
 		return NULL;
 	}
+
+#ifdef DEBUG
 	printf("\nextend_heap: %d\n", alloca_size);
+#endif
 
 	// bp前面有上一个堆结尾，所以可以直接用HDRP(bp)和FTRP(bp)来设置新的头部和尾部
 	// 这里直接传入alloca_size，不用加其他运算，因为最小的单位是8，有点绕，可以仔细想一下
@@ -144,7 +155,9 @@ static void *extend_heap(int words)
 	// 新的堆结尾
 	PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
 
+#ifdef DEBUG
 	print_all();
+#endif
 
 	/* Coalesce if the previous block was free */
 	return coalesce(bp);
@@ -181,7 +194,9 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
+#ifdef DEBUG
 	printf("\nmm_malloc: %d\n", size);
+#endif
 	if (size == 0)
 	{
 		return NULL;
@@ -195,12 +210,12 @@ void *mm_malloc(size_t size)
 	char* curp = heap_listp;
 	int alloca_size = ALIGN(size) + DSIZE;
 
+#ifdef DEBUG
 	print_all();
+#endif
 
-	// printf("\nalloca_size: %d\n", alloca_size);
 	while (GET(HDRP(curp)) != 1)
 	{
-		// printf("curp: %p, size: %d, alloc: %d\n", curp, GET_SIZE(HDRP(curp)), GET_ALLOC(HDRP(curp)));
 		if (!GET_ALLOC(HDRP(curp)) && GET_SIZE(HDRP(curp)) >= alloca_size)
 			break;
 		curp = NEXT_BLKP(curp);
@@ -232,15 +247,19 @@ void *mm_malloc(size_t size)
 			PUT(HDRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
 			PUT(FTRP(curp), PACK(GET_SIZE(HDRP(curp)), 1));
 		}
+
+#ifdef DEBUG
+		printf("mm_malloc done: %p\n", curp);
+		print_all();
+#endif
 		return curp;
 	}
 	else // 没有找到空闲块，需要扩展堆
 	{
 		if ((curp = extend_heap(alloca_size / WSIZE)) == NULL)
 			return NULL;
-		PUT(HDRP(curp), PACK(alloca_size, 1));
-		PUT(FTRP(curp), PACK(alloca_size, 1));
-		return curp;
+		
+		return mm_malloc(size);
 	}
 }
 
@@ -249,7 +268,9 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
+#ifdef DEBUG
 	printf("\nmm_free: %p\n", ptr);
+#endif
     if (ptr == NULL)
     {
         return;
@@ -264,7 +285,9 @@ void mm_free(void *ptr)
 
     coalesce(ptr);
 
+#ifdef DEBUG
 	print_all();
+#endif
 }
 
 /*
