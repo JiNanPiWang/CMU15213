@@ -256,9 +256,10 @@ void *mm_malloc(size_t size)
 	}
 	else // 没有找到空闲块，需要扩展堆
 	{
+		// 扩展的大小至少是CHUNKSIZE
+		alloca_size = alloca_size > CHUNKSIZE ? alloca_size : CHUNKSIZE;
 		if ((curp = extend_heap(alloca_size / WSIZE)) == NULL)
 			return NULL;
-		
 		return mm_malloc(size);
 	}
 }
